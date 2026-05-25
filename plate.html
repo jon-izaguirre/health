@@ -245,6 +245,22 @@
   .comp-list{margin-bottom:8px;}
   .comp{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line-soft);}
   .comp-info{flex:1;min-width:0;}
+
+  /* SCANNER */
+  .btn-scan{background:var(--ink);color:var(--bg);}
+  #scanRegion{width:100%;border-radius:18px;overflow:hidden;background:#000;min-height:240px;position:relative;}
+  #scanRegion video{width:100%!important;display:block;border-radius:18px;}
+  .scan-frame{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center;}
+  .scan-frame .box{width:78%;height:120px;border:2px solid rgba(255,255,255,.9);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);}
+  .scan-status{text-align:center;font-size:14px;color:var(--ink-soft);padding:16px 6px 4px;line-height:1.5;}
+  .scan-or{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:12px;font-weight:600;margin:18px 0;}
+  .scan-or::before,.scan-or::after{content:'';flex:1;height:1px;background:var(--line);}
+  .manual-row{display:flex;gap:9px;}
+  .manual-row input{flex:1;padding:13px 15px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);outline:none;}
+  .manual-row input:focus{border-color:var(--green-bright);}
+  .manual-row button{flex:none;padding:0 20px;border-radius:13px;background:var(--green);color:#fff;font-weight:600;}
+  .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -393,6 +409,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
       <input type="text" id="pickSearch" placeholder="Search foods & meals" oninput="renderPicker()">
     </div>
+    <button class="btn btn-scan" onclick="openScan('log')" style="margin-bottom:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode</button>
     <button class="btn btn-soft" onclick="openCreateFood()" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
     <div id="pickerList"></div>
   </div>
@@ -431,6 +448,7 @@
     <button class="save" onclick="saveFood()">Save</button>
   </div>
   <div class="sheet-body">
+    <button class="btn btn-scan" onclick="openScan('library')" style="margin-bottom:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode to fill this in</button>
     <div class="field"><label>Name</label><input type="text" id="fName" placeholder="e.g. Greek yogurt"></div>
     <div class="field"><label>Brand (optional)</label><input type="text" id="fBrand" placeholder="e.g. Fage"></div>
     <div class="field-row">
@@ -485,6 +503,26 @@
     <button class="btn btn-soft" onclick="openPickerForMeal()" style="margin-bottom:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add ingredient</button>
     <div class="nutprev" id="mealNutPrev"></div>
     <button class="btn btn-danger" id="mealDeleteBtn" onclick="deleteMeal()" style="margin-top:4px;display:none;">Delete this meal</button>
+  </div>
+</div>
+
+<!-- ===== BARCODE SCANNER SHEET ===== -->
+<div class="scrim" id="scanScrim" onclick="closeScan()"></div>
+<div class="sheet" id="scanSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeScan()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3>Scan Barcode</h3>
+    <span style="width:34px"></span>
+  </div>
+  <div class="sheet-body">
+    <div id="scanRegion"><div class="scan-frame"><div class="box"></div></div></div>
+    <div class="scan-status" id="scanStatus">Point your camera at a product barcode.</div>
+    <div class="scan-or">OR ENTER IT MANUALLY</div>
+    <div class="manual-row">
+      <input type="text" id="manualBarcode" inputmode="numeric" placeholder="Barcode number (e.g. 3017624010701)">
+      <button onclick="lookupBarcode(document.getElementById('manualBarcode').value.trim())">Look&nbsp;up</button>
+    </div>
+    <div class="scan-status" style="font-size:12px;color:var(--ink-faint);margin-top:14px;">Nutrition comes from Open Food Facts, a free community database. Always double-check the values before logging — you can edit anything.</div>
   </div>
 </div>
 
@@ -733,7 +771,7 @@ function renderFoods(){
 /* ============ CREATE / EDIT FOOD ============ */
 let editingFood=null;
 function openCreateFood(){
-  editingFood=null;
+  editingFood=null;currentBarcode='';
   document.getElementById('foodSheetTitle').textContent='Create Food';
   document.getElementById('foodDeleteBtn').style.display='none';
   document.getElementById('fName').value='';document.getElementById('fBrand').value='';
@@ -744,7 +782,7 @@ function openCreateFood(){
   openSheet('food');
 }
 function editFood(id){
-  const f=DB.foods[id];if(!f)return;editingFood=id;
+  const f=DB.foods[id];if(!f)return;editingFood=id;currentBarcode=f.barcode||'';
   document.getElementById('foodSheetTitle').textContent='Edit Food';
   document.getElementById('foodDeleteBtn').style.display='block';
   document.getElementById('fName').value=f.name||'';
@@ -768,11 +806,15 @@ function saveFood(){
     brand:document.getElementById('fBrand').value.trim(),
     servQty:Number(document.getElementById('fServQty').value)||1,
     servUnit:document.getElementById('fServUnit').value.trim()||'serving',
+    barcode:currentBarcode||'',
     nut, used:editingFood?DB.foods[editingFood].used:0
   };
+  const newId=f.id, wasNew=!editingFood;
   DB.foods[f.id]=f;save();closeSheet('food');
   if(document.getElementById('s-foods').classList.contains('active'))renderFoods();
   renderToday();
+  // If this food was just created via the logging flow, jump straight to logging it.
+  if(wasNew && pendingLogAfterSave){pendingLogAfterSave=false;setTimeout(()=>openPortion('food',newId),250);}
   toast(editingFood?'Food updated':'Food saved');
 }
 function deleteFood(){
@@ -919,6 +961,151 @@ function closeSheet(name){document.getElementById(name+'Scrim').classList.remove
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 let toastTimer;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1900);}
+
+/* ============ BARCODE SCANNER + OPEN FOOD FACTS ============ */
+let currentBarcode='', pendingLogAfterSave=false, scanContext='log';
+let qrScanner=null, scanHandling=false;
+const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+
+function setScanStatus(html){document.getElementById('scanStatus').innerHTML=html;}
+
+function openScan(ctx){
+  scanContext=ctx||'log';scanHandling=false;
+  document.getElementById('manualBarcode').value='';
+  setScanStatus('Starting camera…');
+  openSheet('scan');
+  loadScanner(err=>{
+    if(err){setScanStatus('Camera tool couldn\'t load (you may be offline).<br>You can still type the barcode number below.');return;}
+    startCamera();
+  });
+}
+function loadScanner(cb){
+  if(window.Html5Qrcode){cb();return;}
+  const s=document.createElement('script');s.src=SCANNER_SRC;
+  s.onload=()=>cb();s.onerror=()=>cb('err');
+  document.head.appendChild(s);
+}
+function startCamera(){
+  try{
+    const fmts=window.Html5QrcodeSupportedFormats?[
+      Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
+    ]:undefined;
+    qrScanner=new Html5Qrcode("scanRegion",{formatsToSupport:fmts,verbose:false});
+    qrScanner.start({facingMode:"environment"},{fps:10,qrbox:{width:260,height:130}},
+      onScanFound,()=>{}
+    ).then(()=>setScanStatus('Point your camera at a product barcode.'))
+     .catch(e=>{
+       setScanStatus('Couldn\'t open the camera ('+(e&&e.name?e.name:'no access')+').<br>Check Safari camera permission, or type the barcode below.');
+     });
+  }catch(e){setScanStatus('Camera unavailable — type the barcode below instead.');}
+}
+function stopCamera(){
+  if(qrScanner){
+    const s=qrScanner;qrScanner=null;
+    try{s.stop().then(()=>{try{s.clear();}catch(e){}}).catch(()=>{});}catch(e){}
+  }
+}
+function closeScan(){stopCamera();closeSheet('scan');}
+function onScanFound(text){
+  if(scanHandling)return;scanHandling=true;
+  stopCamera();
+  if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}
+  lookupBarcode(text);
+}
+
+function lookupBarcode(code){
+  code=(code||'').replace(/\s/g,'');
+  if(!code){toast('Enter a barcode number');scanHandling=false;return;}
+  // 1) already in your library?
+  const local=findFoodByBarcode(code);
+  if(local){
+    closeScan();
+    if(scanContext==='log'){toast('Found in your foods');setTimeout(()=>openPortion('food',local.id),200);}
+    else{toast('You already have this food');setTimeout(()=>editFood(local.id),200);}
+    return;
+  }
+  // 2) look it up online
+  setScanStatus('<span class="spinner"></span> Looking up '+esc(code)+'…');
+  const url='https://world.openfoodfacts.org/api/v0/product/'+encodeURIComponent(code)+'.json';
+  fetch(url).then(r=>r.json()).then(data=>{
+    if(data&&data.status===1&&data.product){
+      prefillFromOFF(data.product,code);
+    }else{
+      // not found — open a blank form with the barcode attached
+      closeScan();
+      openCreateFood();currentBarcode=code;
+      toast('Not in the database — enter it manually');
+    }
+  }).catch(()=>{
+    setScanStatus('Couldn\'t reach the database (you may be offline).<br>You can type the values in manually instead.');
+    scanHandling=false;
+  });
+}
+function findFoodByBarcode(code){return Object.values(DB.foods).find(f=>f.barcode&&f.barcode===code);}
+
+/* Map an Open Food Facts product to our food form (per-serving when known, else per 100 g) */
+function prefillFromOFF(p,code){
+  const nm=p.nutriments||{};
+  const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null;};
+  // base values per 100g (OFF normalizes most to grams; energy may be kcal or kJ)
+  let kcal=num(nm['energy-kcal_100g']);
+  if(kcal===null){const kj=num(nm['energy_100g']);if(kj!==null)kcal=kj/4.184;}
+  const per100={
+    calories:kcal,
+    protein:num(nm['proteins_100g']),
+    totalCarbs:num(nm['carbohydrates_100g']),
+    totalFat:num(nm['fat_100g']),
+    satFat:num(nm['saturated-fat_100g']),
+    polyFat:num(nm['polyunsaturated-fat_100g']),
+    monoFat:num(nm['monounsaturated-fat_100g']),
+    transFat:num(nm['trans-fat_100g']),
+    fiber:num(nm['fiber_100g']),
+    sugars:num(nm['sugars_100g']),
+    addedSugars:num(nm['added-sugars_100g']),
+    sugarAlcohols:num(nm['polyols_100g']),
+    // these are stored in grams by OFF -> convert to mg
+    cholesterol:mul(num(nm['cholesterol_100g']),1000),
+    sodium:sodiumMg(nm),
+    potassium:mul(num(nm['potassium_100g']),1000)
+  };
+  // determine serving basis
+  let servQty=100, servUnit='g', factor=1;
+  const sq=num(p.serving_quantity);
+  if(sq&&sq>0){servQty=round1(sq);factor=sq/100;}
+  // fill the form (review-first)
+  closeScan();
+  openCreateFood();
+  currentBarcode=code;
+  document.getElementById('fName').value=(p.product_name||p.generic_name||'').trim();
+  document.getElementById('fBrand').value=((p.brands||'').split(',')[0]||'').trim();
+  document.getElementById('fServQty').value=servQty;
+  document.getElementById('fServUnit').value=servUnit;
+  let any=false, hadExtra=false;
+  NUT_FIELDS.forEach(k=>{
+    const el=document.getElementById('n_'+k);if(!el)return;
+    let v=per100[k];
+    if(v===null||v===undefined){el.value='';return;}
+    v=v*factor;
+    v=k==='calories'?Math.round(v):round1(v);
+    el.value=v;any=true;
+    if(!['calories','protein','totalCarbs','totalFat'].includes(k))hadExtra=true;
+  });
+  if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
+  if(scanContext==='log')pendingLogAfterSave=true;
+  toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
+}
+function mul(v,f){return (v===null||v===undefined)?null:v*f;}
+function sodiumMg(nm){
+  const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null;};
+  let s=num(nm['sodium_100g']);                       // grams
+  if(s!==null)return s*1000;
+  const salt=num(nm['salt_100g']);                    // grams of salt
+  if(salt!==null)return (salt/2.5)*1000;              // salt -> sodium
+  return null;
+}
+function round1(n){return Math.round(n*10)/10;}
 
 /* ============ INIT ============ */
 renderToday();
