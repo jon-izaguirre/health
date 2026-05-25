@@ -204,7 +204,9 @@
   .qty-wrap{display:flex;align-items:center;justify-content:center;gap:18px;margin:24px 0 8px;}
   .qty-btn{width:48px;height:48px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center;font-size:24px;color:var(--green);font-weight:400;}
   .qty-btn:active{transform:scale(.92);}
-  .qty-input{width:110px;text-align:center;font-size:34px;font-weight:600;border:none;outline:none;background:none;color:var(--ink);font-family:'Fraunces',serif;}
+  .qty-input{width:130px;text-align:center;font-size:34px;font-weight:600;border:none;outline:none;background:none;color:var(--ink);font-family:'Fraunces',serif;border-bottom:2px solid var(--line);padding-bottom:4px;}
+  .qty-input:focus{border-bottom-color:var(--green-bright);}
+  .qty-unit{font-size:16px;font-weight:600;color:var(--ink-soft);min-width:30px;text-align:left;}
   .serving-pick{text-align:center;font-size:13.5px;color:var(--ink-soft);margin-bottom:22px;}
   .meal-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 24px;}
   .meal-chip{padding:9px 16px;border-radius:30px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:600;color:var(--ink-soft);}
@@ -410,7 +412,7 @@
       <input type="text" id="pickSearch" placeholder="Search foods & meals" oninput="renderPicker()">
     </div>
     <button class="btn btn-scan" onclick="openScan('log')" style="margin-bottom:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode</button>
-    <button class="btn btn-soft" onclick="openCreateFood()" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
+    <button class="btn btn-soft" onclick="openCreateFood(true)" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
     <div id="pickerList"></div>
   </div>
 </div>
@@ -420,7 +422,7 @@
 <div class="sheet" id="portionSheet">
   <div class="sheet-head"><div class="grab"></div>
     <button class="x" onclick="closeSheet('portion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-    <h3>Log Food</h3>
+    <h3 id="portionTitle">Log Food</h3>
     <button class="save" id="portionSave">Add</button>
   </div>
   <div class="sheet-body">
@@ -429,13 +431,15 @@
       <div class="pf-sub" id="pServingDesc"></div>
     </div>
     <div class="qty-wrap">
-      <button class="qty-btn" onclick="bumpQty(-0.5)">−</button>
-      <input class="qty-input" id="pQty" type="number" inputmode="decimal" step="any" value="1" oninput="renderPortionPreview()">
-      <button class="qty-btn" onclick="bumpQty(0.5)">+</button>
+      <button class="qty-btn" onclick="bumpQty(-1)">−</button>
+      <input class="qty-input" id="pQty" type="text" inputmode="decimal" value="1" oninput="renderPortionPreview()">
+      <span class="qty-unit" id="pQtyUnit"></span>
+      <button class="qty-btn" onclick="bumpQty(1)">+</button>
     </div>
     <div class="serving-pick" id="pServingUnit"></div>
     <div class="meal-select" id="pMealSelect"></div>
     <div class="nutprev" id="pNutPrev"></div>
+    <button class="btn btn-danger" id="portionDelete" onclick="deleteEditingEntry()" style="display:none;">Remove from diary</button>
   </div>
 </div>
 
@@ -453,7 +457,10 @@
     <div class="field"><label>Brand (optional)</label><input type="text" id="fBrand" placeholder="e.g. Fage"></div>
     <div class="field-row">
       <div class="field"><label>Serving size</label><input type="number" inputmode="decimal" step="any" id="fServQty" placeholder="1" value="1"></div>
-      <div class="field"><label>Unit</label><input type="text" id="fServUnit" placeholder="cup, g, slice…"></div>
+      <div class="field"><label>Unit</label>
+        <select id="fServUnit" onchange="onUnitChange()"></select>
+        <input type="text" id="fServUnitCustom" placeholder="Type a unit (e.g. scoop)" style="display:none;margin-top:8px;">
+      </div>
     </div>
     <div class="section-label">Nutrition per serving</div>
     <div class="nutri-grid">
@@ -646,11 +653,11 @@ function renderDiary(){
     let kcal=0;entries.forEach(e=>kcal+=entryNut(e).calories);
     const rows=entries.map((e,i)=>{
       const n=entryNut(e);
-      return `<div class="entry">
-        <div class="entry-info"><div class="entry-name">${esc(refName(e))}${e.type==='meal'?' ·':''}</div>
-        <div class="entry-meta">${fmtQty(e.qty)} ${e.type==='meal'?'serving'+(e.qty!==1?'s':''):servingText(e)}</div></div>
+      return `<div class="entry" onclick="editEntry('${m}',${i})">
+        <div class="entry-info"><div class="entry-name">${esc(refName(e))}</div>
+        <div class="entry-meta">${esc(entryAmountText(e))}</div></div>
         <div class="entry-kcal">${r0(n.calories)}</div>
-        <button class="entry-x" onclick="removeEntry('${m}',${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        <button class="entry-x" onclick="event.stopPropagation();removeEntry('${m}',${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>`;
     }).join('');
     return `<div class="meal">
@@ -664,8 +671,15 @@ function renderDiary(){
     </div>`;
   }).join('');
 }
-function servingText(e){const f=DB.foods[e.refId];if(!f)return'';return (f.servUnit||'serving');}
+function entryAmountText(e){
+  if(e.type==='meal'){const q=e.qty;return fmtQty(q)+' serving'+(q!==1?'s':'');}
+  const f=DB.foods[e.refId];
+  const amt=(e.amt!=null)?e.amt:(e.qty*((f&&f.servQty)||1));
+  const unit=e.unit||(f&&f.servUnit)||'serving';
+  return fmtAmt(amt)+' '+unit;
+}
 function fmtQty(q){return Number.isInteger(q)?q:r1(q);}
+function fmtAmt(v){return Number.isInteger(v)?v:Math.round(v*100)/100;}
 function mealIcon(m){
   const ic={
     breakfast:'<path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
@@ -704,32 +718,70 @@ function pickItem(type,id){
 }
 
 /* ============ PORTION ============ */
-let portionRef=null;
-function openPortion(type,id){
+let portionRef=null, editingEntry=null;
+function portionBase(){ // 1 serving expressed in the food's unit (meals: 1 serving)
+  if(portionRef.type==='meal')return 1;
+  const f=DB.foods[portionRef.id];return (f&&f.servQty)||1;
+}
+function portionUnit(){
+  if(portionRef.type==='meal')return 'serving';
+  const f=DB.foods[portionRef.id];return (f&&f.servUnit)||'serving';
+}
+function amountToMult(amount){
+  if(portionRef.type==='meal')return amount;
+  const base=portionBase();return base>0?amount/base:0;
+}
+function openPortion(type,id,opts){
+  opts=opts||{};
   const obj=type==='meal'?DB.meals[id]:DB.foods[id];if(!obj)return;
+  closeSheet('picker');
   portionRef={type,id};
+  editingEntry=opts.editing?{meal:opts.meal,index:opts.index}:null;
+  if(opts.meal)pickerMeal=opts.meal;
+  document.getElementById('portionTitle').textContent=editingEntry?'Edit Entry':'Log Food';
+  document.getElementById('portionSave').textContent=editingEntry?'Save':'Add';
+  document.getElementById('portionDelete').style.display=editingEntry?'block':'none';
   document.getElementById('pName').textContent=obj.name;
-  document.getElementById('pQty').value=1;
+  const unit=portionUnit(), base=portionBase();
+  const defAmount=(opts.amount!=null)?opts.amount:base;
+  document.getElementById('pQty').value=fmtAmt(defAmount);
+  document.getElementById('pQtyUnit').textContent=(type==='meal')?(defAmount===1?'serving':'servings'):unit;
   if(type==='meal'){
     document.getElementById('pServingDesc').textContent=(obj.comps||[]).length+' ingredients';
-    document.getElementById('pServingUnit').textContent='servings of this meal';
   }else{
-    document.getElementById('pServingDesc').textContent=(obj.brand?obj.brand+' · ':'')+'1 = '+fmtQty(obj.servQty||1)+' '+(obj.servUnit||'serving');
-    document.getElementById('pServingUnit').textContent='× '+fmtQty(obj.servQty||1)+' '+(obj.servUnit||'serving')+' per unit';
+    document.getElementById('pServingDesc').textContent=(obj.brand?obj.brand+' · ':'')+'1 serving = '+fmtQty(base)+' '+unit;
   }
-  // meal target chips
   document.getElementById('pMealSelect').innerHTML=MEALS.map(m=>`<button class="meal-chip${m===pickerMeal?' sel':''}" data-m="${m}" onclick="pickerMeal='${m}';renderMealChips();">${MEAL_LABEL[m]}</button>`).join('');
   renderPortionPreview();
   openSheet('portion');
   document.getElementById('portionSave').onclick=commitPortion;
 }
 function renderMealChips(){document.querySelectorAll('#pMealSelect .meal-chip').forEach(c=>c.classList.toggle('sel',c.dataset.m===pickerMeal));}
-function bumpQty(d){const i=document.getElementById('pQty');let v=(parseFloat(i.value)||0)+d;if(v<0)v=0;i.value=r1(v);renderPortionPreview();}
+function portionStep(){
+  if(portionRef.type==='meal')return 1;
+  const f=DB.foods[portionRef.id],u=(f.servUnit||'').toLowerCase();
+  if(u==='g'||u==='ml'||u==='mg')return f.servQty>=200?25:(f.servQty>=40?10:5);
+  return 1;
+}
+function bumpQty(dir){
+  const i=document.getElementById('pQty');
+  let v=(parseFloat(i.value)||0)+dir*portionStep();
+  if(v<0)v=0;
+  i.value=fmtAmt(v);
+  renderPortionPreview();
+}
 function renderPortionPreview(){
   if(!portionRef)return;
-  const q=parseFloat(document.getElementById('pQty').value)||0;
+  const amount=parseFloat(document.getElementById('pQty').value)||0;
+  const mult=amountToMult(amount);
   const obj=portionRef.type==='meal'?DB.meals[portionRef.id]:DB.foods[portionRef.id];
-  const n=portionRef.type==='meal'?mealNut(obj,q):foodNut(obj,q);
+  const n=portionRef.type==='meal'?mealNut(obj,mult):foodNut(obj,mult);
+  if(portionRef.type==='meal'){
+    document.getElementById('pQtyUnit').textContent=(amount===1?'serving':'servings');
+    document.getElementById('pServingUnit').textContent='';
+  }else{
+    document.getElementById('pServingUnit').textContent='≈ '+fmtAmt(mult)+' serving'+(mult===1?'':'s');
+  }
   document.getElementById('pNutPrev').innerHTML=`
     <div><div class="npv display">${r0(n.calories)}</div><div class="npl">kcal</div></div>
     <div><div class="npv display" style="color:var(--carb)">${r0(n.totalCarbs)}g</div><div class="npl">Carbs</div></div>
@@ -737,14 +789,41 @@ function renderPortionPreview(){
     <div><div class="npv display" style="color:var(--fat)">${r0(n.totalFat)}g</div><div class="npl">Fat</div></div>`;
 }
 function commitPortion(){
-  const q=parseFloat(document.getElementById('pQty').value)||0;
-  if(q<=0){toast('Enter an amount');return;}
-  if(!DB.log[selDate])DB.log[selDate]={};
-  if(!DB.log[selDate][pickerMeal])DB.log[selDate][pickerMeal]=[];
-  DB.log[selDate][pickerMeal].push({type:portionRef.type,refId:portionRef.id,qty:q});
+  const amount=parseFloat(document.getElementById('pQty').value)||0;
+  if(amount<=0){toast('Enter an amount');return;}
+  const mult=amountToMult(amount);
+  const unit=portionUnit();
+  const entry={type:portionRef.type,refId:portionRef.id,qty:mult,amt:amount,unit:(portionRef.type==='meal'?'serving':unit)};
+  if(editingEntry){
+    // remove from its old meal, then add to the (possibly changed) selected meal
+    const oldArr=(DB.log[selDate]&&DB.log[selDate][editingEntry.meal])||[];
+    oldArr.splice(editingEntry.index,1);
+    pushEntry(pickerMeal,entry);
+    save();closeSheet('portion');renderToday();toast('Updated');
+    editingEntry=null;return;
+  }
+  pushEntry(pickerMeal,entry);
   const obj=portionRef.type==='meal'?DB.meals[portionRef.id]:DB.foods[portionRef.id];
   obj.used=(obj.used||0)+1;
   save();closeSheet('portion');renderToday();toast('Added to '+MEAL_LABEL[pickerMeal]);
+}
+function pushEntry(meal,entry){
+  if(!DB.log[selDate])DB.log[selDate]={};
+  if(!DB.log[selDate][meal])DB.log[selDate][meal]=[];
+  DB.log[selDate][meal].push(entry);
+}
+function editEntry(meal,index){
+  const e=(DB.log[selDate]&&DB.log[selDate][meal]||[])[index];if(!e)return;
+  const obj=e.type==='meal'?DB.meals[e.refId]:DB.foods[e.refId];
+  if(!obj){toast('This item was deleted from your library');return;}
+  const amt=(e.amt!=null)?e.amt:(e.type==='meal'?e.qty:e.qty*((obj.servQty)||1));
+  openPortion(e.type,e.refId,{amount:amt,meal,index,editing:true});
+}
+function deleteEditingEntry(){
+  if(!editingEntry)return;
+  const arr=DB.log[selDate]&&DB.log[selDate][editingEntry.meal];
+  if(arr)arr.splice(editingEntry.index,1);
+  save();closeSheet('portion');renderToday();toast('Removed');editingEntry=null;
 }
 
 /* ============ FOODS LIBRARY ============ */
@@ -770,12 +849,13 @@ function renderFoods(){
 
 /* ============ CREATE / EDIT FOOD ============ */
 let editingFood=null;
-function openCreateFood(){
-  editingFood=null;currentBarcode='';
+function openCreateFood(forLog){
+  closeSheet('picker');
+  editingFood=null;currentBarcode='';pendingLogAfterSave=(forLog===true);
   document.getElementById('foodSheetTitle').textContent='Create Food';
   document.getElementById('foodDeleteBtn').style.display='none';
   document.getElementById('fName').value='';document.getElementById('fBrand').value='';
-  document.getElementById('fServQty').value='1';document.getElementById('fServUnit').value='';
+  document.getElementById('fServQty').value='1';setUnitValue('');
   NUT_FIELDS.forEach(f=>{const el=document.getElementById('n_'+f);if(el)el.value='';});
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
@@ -788,11 +868,42 @@ function editFood(id){
   document.getElementById('fName').value=f.name||'';
   document.getElementById('fBrand').value=f.brand||'';
   document.getElementById('fServQty').value=f.servQty||1;
-  document.getElementById('fServUnit').value=f.servUnit||'';
+  setUnitValue(f.servUnit||'');
   NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);if(el){const v=f.nut[k];el.value=(v===0||v===undefined||v===null)?'':v;}});
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
   openSheet('food');
+}
+/* ---- Unit dropdown helpers ---- */
+const UNIT_OPTIONS=['serving','g','oz','lb','kg','mL','L','fl oz','cup','tbsp','tsp','slice','piece','scoop','can','bottle','packet','egg','clove'];
+function buildUnitSelect(){
+  const sel=document.getElementById('fServUnit');if(!sel||sel.dataset.built)return;
+  sel.innerHTML=UNIT_OPTIONS.map(u=>`<option value="${u}">${u}</option>`).join('')+'<option value="__custom__">Custom…</option>';
+  sel.dataset.built='1';
+}
+function normalizeUnit(u){
+  if(!u)return'';u=String(u).trim();
+  const map={ml:'mL',mls:'mL',milliliter:'mL',milliliters:'mL',l:'L',liter:'L',liters:'L',g:'g',gram:'g',grams:'g',gr:'g',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',kg:'kg',cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tsp:'tsp',teaspoon:'tsp','fl oz':'fl oz','floz':'fl oz'};
+  const low=u.toLowerCase();
+  return map[low]||u;
+}
+function setUnitValue(u){
+  buildUnitSelect();
+  const sel=document.getElementById('fServUnit'),custom=document.getElementById('fServUnitCustom');
+  u=normalizeUnit(u);
+  if(!u){sel.value='serving';custom.style.display='none';custom.value='';return;}
+  if(UNIT_OPTIONS.includes(u)){sel.value=u;custom.style.display='none';custom.value='';}
+  else{sel.value='__custom__';custom.style.display='block';custom.value=u;}
+}
+function getUnitValue(){
+  const sel=document.getElementById('fServUnit'),custom=document.getElementById('fServUnitCustom');
+  if(sel.value==='__custom__')return (custom.value.trim()||'serving');
+  return sel.value||'serving';
+}
+function onUnitChange(){
+  const sel=document.getElementById('fServUnit'),custom=document.getElementById('fServUnitCustom');
+  if(sel.value==='__custom__'){custom.style.display='block';custom.focus();}
+  else{custom.style.display='none';}
 }
 function toggleMore(){document.getElementById('moreNutrients').classList.toggle('open');document.getElementById('moreBtn').classList.toggle('open');}
 function saveFood(){
@@ -805,7 +916,7 @@ function saveFood(){
     id:editingFood||uid(),name,
     brand:document.getElementById('fBrand').value.trim(),
     servQty:Number(document.getElementById('fServQty').value)||1,
-    servUnit:document.getElementById('fServUnit').value.trim()||'serving',
+    servUnit:getUnitValue(),
     barcode:currentBarcode||'',
     nut, used:editingFood?DB.foods[editingFood].used:0
   };
@@ -923,8 +1034,34 @@ function renderProgress(){
 }
 
 /* ============ EXPORT / IMPORT ============ */
+function buildDailySummary(){
+  // Shared "daily" layer per Health Data Spec v1 — registry keys only.
+  const out={};
+  Object.keys(DB.log||{}).forEach(date=>{
+    const t=dayTotals(date);
+    if(r0(t.calories)===0 && r0(t.protein)===0 && r0(t.totalCarbs)===0 && r0(t.totalFat)===0)return;
+    out[date]={
+      calories:r0(t.calories),
+      protein_g:r0(t.protein),
+      carbs_g:r0(t.totalCarbs),
+      fat_g:r0(t.totalFat),
+      fiber_g:r0(t.fiber),
+      sugar_g:r0(t.sugars),
+      sodium_mg:r0(t.sodium)
+    };
+  });
+  return out;
+}
 function exportData(){
-  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const payload={
+    health_app:'plate',
+    version:1,
+    exportedAt:new Date().toISOString(),
+    units:'us',
+    daily:buildDailySummary(),
+    raw:DB
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;a.download='plate-backup-'+todayStr()+'.json';
@@ -937,7 +1074,9 @@ function importData(ev){
   const reader=new FileReader();
   reader.onload=()=>{
     try{
-      const d=JSON.parse(reader.result);
+      const parsed=JSON.parse(reader.result);
+      // Accept new enveloped format (data in .raw) or older plain backup (data at top level).
+      const d=(parsed && parsed.raw && parsed.raw.foods) ? parsed.raw : parsed;
       if(!d.goals||!d.foods||!d.log){throw new Error('bad');}
       if(!confirm('Replace all current data with this backup? This cannot be undone.'))return;
       DB=Object.assign(blankDB(),d);save();
@@ -987,15 +1126,25 @@ function loadScanner(cb){
 }
 function startCamera(){
   try{
+    // Only grocery barcode symbologies → far less work per frame than scanning all formats.
     const fmts=window.Html5QrcodeSupportedFormats?[
       Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E,
-      Html5QrcodeSupportedFormats.CODE_128,Html5QrcodeSupportedFormats.CODE_39
+      Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E
     ]:undefined;
-    qrScanner=new Html5Qrcode("scanRegion",{formatsToSupport:fmts,verbose:false});
-    qrScanner.start({facingMode:"environment"},{fps:10,qrbox:{width:260,height:130}},
+    qrScanner=new Html5Qrcode("scanRegion",{
+      formatsToSupport:fmts,
+      // Use the phone's native hardware barcode detector when available (much faster); falls back automatically.
+      useBarCodeDetectorIfSupported:true,
+      experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+      verbose:false
+    });
+    // Wide, cropped scan box → the decoder only processes the strip around the barcode.
+    const qrbox=(vw,vh)=>{const w=Math.max(180,Math.min(Math.round(vw*0.85),330));return{width:w,height:Math.max(120,Math.round(w*0.48))};};
+    qrScanner.start(
+      {facingMode:"environment",focusMode:"continuous"},
+      {fps:18, qrbox, disableFlip:true, aspectRatio:1.0},
       onScanFound,()=>{}
-    ).then(()=>setScanStatus('Point your camera at a product barcode.'))
+    ).then(()=>setScanStatus('Center the barcode in the box — hold steady.'))
      .catch(e=>{
        setScanStatus('Couldn\'t open the camera ('+(e&&e.name?e.name:'no access')+').<br>Check Safari camera permission, or type the barcode below.');
      });
@@ -1035,7 +1184,7 @@ function lookupBarcode(code){
     }else{
       // not found — open a blank form with the barcode attached
       closeScan();
-      openCreateFood();currentBarcode=code;
+      openCreateFood(scanContext==='log');currentBarcode=code;
       toast('Not in the database — enter it manually');
     }
   }).catch(()=>{
@@ -1070,10 +1219,15 @@ function prefillFromOFF(p,code){
     sodium:sodiumMg(nm),
     potassium:mul(num(nm['potassium_100g']),1000)
   };
-  // determine serving basis
+  // determine serving basis + unit
   let servQty=100, servUnit='g', factor=1;
   const sq=num(p.serving_quantity);
-  if(sq&&sq>0){servQty=round1(sq);factor=sq/100;}
+  if(sq&&sq>0){
+    servQty=round1(sq);factor=sq/100;
+    let ug=p.serving_quantity_unit||'';
+    if(!ug && p.serving_size){const m=String(p.serving_size).match(/[a-zA-Z]+/);if(m)ug=m[0];}
+    servUnit=normalizeUnit(ug)||'g';
+  }
   // fill the form (review-first)
   closeScan();
   openCreateFood();
@@ -1081,7 +1235,7 @@ function prefillFromOFF(p,code){
   document.getElementById('fName').value=(p.product_name||p.generic_name||'').trim();
   document.getElementById('fBrand').value=((p.brands||'').split(',')[0]||'').trim();
   document.getElementById('fServQty').value=servQty;
-  document.getElementById('fServUnit').value=servUnit;
+  setUnitValue(servUnit);
   let any=false, hadExtra=false;
   NUT_FIELDS.forEach(k=>{
     const el=document.getElementById('n_'+k);if(!el)return;
@@ -1108,6 +1262,7 @@ function sodiumMg(nm){
 function round1(n){return Math.round(n*10)/10;}
 
 /* ============ INIT ============ */
+buildUnitSelect();
 renderToday();
 </script>
 </body>
