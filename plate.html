@@ -524,6 +524,9 @@
   <div class="sheet-body">
     <div id="scanRegion"><div class="scan-frame"><div class="box"></div></div></div>
     <div class="scan-status" id="scanStatus">Point your camera at a product barcode.</div>
+    <button class="btn btn-primary" id="photoBtn" onclick="document.getElementById('barcodePhoto').click()" style="margin-top:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take a photo of the barcode</button>
+    <input type="file" id="barcodePhoto" accept="image/*" capture="environment" style="display:none" onchange="onPhotoChosen(event)">
+    <div id="scanFileRegion" style="display:none"></div>
     <div class="scan-or">OR ENTER IT MANUALLY</div>
     <div class="manual-row">
       <input type="text" id="manualBarcode" inputmode="numeric" placeholder="Barcode number (e.g. 3017624010701)">
@@ -1107,16 +1110,34 @@ let qrScanner=null, scanHandling=false;
 const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
 
 function setScanStatus(html){document.getElementById('scanStatus').innerHTML=html;}
-
+function isStandaloneApp(){
+  return (window.navigator.standalone===true) ||
+         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+function barcodeFormats(){
+  return window.Html5QrcodeSupportedFormats?[
+    Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E
+  ]:undefined;
+}
 function openScan(ctx){
   scanContext=ctx||'log';scanHandling=false;
   document.getElementById('manualBarcode').value='';
-  setScanStatus('Starting camera…');
   openSheet('scan');
-  loadScanner(err=>{
-    if(err){setScanStatus('Camera tool couldn\'t load (you may be offline).<br>You can still type the barcode number below.');return;}
-    startCamera();
-  });
+  const standalone=isStandaloneApp();
+  // iOS blocks live camera (getUserMedia) inside installed home-screen web apps.
+  // In that mode we skip the live viewfinder and use the native-camera photo path instead.
+  document.getElementById('scanRegion').style.display=standalone?'none':'block';
+  if(standalone){
+    setScanStatus('Tap <b>Take a photo of the barcode</b> below — it opens your camera and reads the code from the picture.');
+    loadScanner(()=>{}); // preload so photo decode is instant
+  }else{
+    setScanStatus('Starting camera…');
+    loadScanner(err=>{
+      if(err){setScanStatus('Camera tool couldn\'t load (you may be offline).<br>Use “Take a photo” or type the barcode below.');return;}
+      startCamera();
+    });
+  }
 }
 function loadScanner(cb){
   if(window.Html5Qrcode){cb();return;}
@@ -1126,29 +1147,40 @@ function loadScanner(cb){
 }
 function startCamera(){
   try{
-    // Only grocery barcode symbologies → far less work per frame than scanning all formats.
-    const fmts=window.Html5QrcodeSupportedFormats?[
-      Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E
-    ]:undefined;
     qrScanner=new Html5Qrcode("scanRegion",{
-      formatsToSupport:fmts,
-      // Use the phone's native hardware barcode detector when available (much faster); falls back automatically.
+      formatsToSupport:barcodeFormats(),
       useBarCodeDetectorIfSupported:true,
       experimentalFeatures:{useBarCodeDetectorIfSupported:true},
       verbose:false
     });
-    // Wide, cropped scan box → the decoder only processes the strip around the barcode.
     const qrbox=(vw,vh)=>{const w=Math.max(180,Math.min(Math.round(vw*0.85),330));return{width:w,height:Math.max(120,Math.round(w*0.48))};};
     qrScanner.start(
       {facingMode:"environment",focusMode:"continuous"},
       {fps:18, qrbox, disableFlip:true, aspectRatio:1.0},
       onScanFound,()=>{}
-    ).then(()=>setScanStatus('Center the barcode in the box — hold steady.'))
+    ).then(()=>setScanStatus('Center the barcode in the box — or use “Take a photo”.'))
      .catch(e=>{
-       setScanStatus('Couldn\'t open the camera ('+(e&&e.name?e.name:'no access')+').<br>Check Safari camera permission, or type the barcode below.');
+       document.getElementById('scanRegion').style.display='none';
+       setScanStatus('Live camera unavailable here. Tap <b>Take a photo of the barcode</b>, or type the number below.');
      });
-  }catch(e){setScanStatus('Camera unavailable — type the barcode below instead.');}
+  }catch(e){setScanStatus('Tap “Take a photo of the barcode”, or type the number below.');}
+}
+// Decode a barcode from a still photo taken with the native camera (works in installed-app mode).
+function onPhotoChosen(ev){
+  const file=ev.target.files&&ev.target.files[0];
+  ev.target.value='';
+  if(!file)return;
+  scanHandling=false;
+  setScanStatus('<span class="spinner"></span> Reading photo…');
+  loadScanner(err=>{
+    if(err){setScanStatus('Scanner tool couldn\'t load (offline?). Type the barcode below.');return;}
+    let inst;
+    try{ inst=new Html5Qrcode("scanFileRegion",{formatsToSupport:barcodeFormats(),verbose:false}); }
+    catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){setScanStatus('Couldn\'t start the reader. Type the barcode below.');return;} }
+    inst.scanFile(file,false)
+      .then(text=>{ try{inst.clear();}catch(e){} onScanFound(text); })
+      .catch(()=>{ try{inst.clear();}catch(e){} setScanStatus('Couldn\'t find a barcode in that photo. Try again — fill the frame with the barcode and keep it sharp — or type the number below.'); });
+  });
 }
 function stopCamera(){
   if(qrScanner){
