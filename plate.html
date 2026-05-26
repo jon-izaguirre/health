@@ -85,7 +85,7 @@
   .ring{position:relative;width:122px;height:122px;flex:none;}
   .ring svg{transform:rotate(-90deg);}
   .ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .ring .big{font-size:30px;font-weight:600;line-height:1;letter-spacing:-.02em;}
+  .ring .big{font-family:'Hanken Grotesk',sans-serif;font-size:31px;font-weight:700;line-height:1;letter-spacing:-.03em;}
   .ring .sub{font-size:11px;color:var(--ink-faint);font-weight:600;margin-top:4px;letter-spacing:.03em;}
   .cal-side{flex:1;}
   .cal-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;}
@@ -293,7 +293,7 @@
           </svg>
           <div class="center">
             <div class="big display" id="calLeft">0</div>
-            <div class="sub" id="calLeftLbl">kcal left</div>
+            <div class="sub" id="calLeftLbl">cal left</div>
           </div>
         </div>
         <div class="cal-side">
@@ -330,7 +330,7 @@
   <section class="screen" id="s-progress">
     <div class="screen-title display">Progress</div>
     <div class="stat-grid">
-      <div class="stat"><div class="sv display" id="statAvg">0</div><div class="sl">Avg kcal / logged day</div></div>
+      <div class="stat"><div class="sv display" id="statAvg">0</div><div class="sl">Avg cal / logged day</div></div>
       <div class="stat"><div class="sv display" id="statStreak">0</div><div class="sl">Day streak</div></div>
     </div>
     <div class="card">
@@ -351,7 +351,7 @@
     <div class="listcard">
       <div class="goal-row">
         <div class="gl">Calories</div>
-        <div class="goal-input"><input type="number" inputmode="numeric" id="gCal" onchange="saveGoals()" oninput="updateGoalPcts()"><span style="font-size:13px;color:var(--ink-faint);font-weight:600;">kcal</span></div>
+        <div class="goal-input"><input type="number" inputmode="numeric" id="gCal" onchange="saveGoals()" oninput="updateGoalPcts()"><span style="font-size:13px;color:var(--ink-faint);font-weight:600;">cal</span></div>
       </div>
       <div class="goal-row">
         <div class="gl">Carbs</div>
@@ -615,7 +615,7 @@ function renderToday(){
   remEl.className='v '+(rem<0?'over':'left');
   const left=document.getElementById('calLeft');
   left.textContent=Math.abs(rem).toLocaleString();
-  document.getElementById('calLeftLbl').textContent=rem<0?'kcal over':'kcal left';
+  document.getElementById('calLeftLbl').textContent=rem<0?'cal over':'cal left';
   const pct=goal>0?Math.min(food/goal,1):0;
   const C=2*Math.PI*52;
   const ring=document.getElementById('calRing');
@@ -667,7 +667,7 @@ function renderDiary(){
       <div class="meal-top">
         <div class="meal-ico">${mealIcon(m)}</div>
         <div class="meal-info"><div class="meal-name">${MEAL_LABEL[m]}</div>
-        <div class="meal-kcal">${kcal?r0(kcal)+' kcal':'Nothing logged yet'}</div></div>
+        <div class="meal-kcal">${kcal?r0(kcal)+' cal':'Nothing logged yet'}</div></div>
         <button class="meal-add" onclick="openPicker('${m}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       </div>
       ${entries.length?`<div class="entries">${rows}</div>`:''}
@@ -786,7 +786,7 @@ function renderPortionPreview(){
     document.getElementById('pServingUnit').textContent='≈ '+fmtAmt(mult)+' serving'+(mult===1?'':'s');
   }
   document.getElementById('pNutPrev').innerHTML=`
-    <div><div class="npv display">${r0(n.calories)}</div><div class="npl">kcal</div></div>
+    <div><div class="npv display">${r0(n.calories)}</div><div class="npl">cal</div></div>
     <div><div class="npv display" style="color:var(--carb)">${r0(n.totalCarbs)}g</div><div class="npl">Carbs</div></div>
     <div><div class="npv display" style="color:var(--protein)">${r0(n.protein)}g</div><div class="npl">Protein</div></div>
     <div><div class="npv display" style="color:var(--fat)">${r0(n.totalFat)}g</div><div class="npl">Fat</div></div>`;
@@ -844,7 +844,7 @@ function renderFoods(){
     const sub=x._type==='meal'?`${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`;
     return `<button class="row" onclick="${x._type==='meal'?`editMeal('${x.id}')`:`editFood('${x.id}')`}">
       <div class="row-main"><div class="row-t">${esc(x.name)} ${x._type==='meal'?'<span class="tagm">Meal</span>':''}</div><div class="row-s">${sub}</div></div>
-      <div class="row-r">${r0(n.calories)} <span style="color:var(--ink-faint);font-weight:500;font-size:12px">kcal</span></div>
+      <div class="row-r">${r0(n.calories)} <span style="color:var(--ink-faint);font-weight:500;font-size:12px">cal</span></div>
       <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>`;
   }).join('')+'</div>';
@@ -950,7 +950,7 @@ function renderMealComps(){
       const f=DB.foods[c.foodId];if(!f)return'';
       return `<div class="comp">
         <div class="comp-info"><div class="row-t" style="font-size:14.5px">${esc(f.name)}</div>
-        <div class="row-s">${r0(foodNut(f,c.qty).calories)} kcal</div></div>
+        <div class="row-s">${r0(foodNut(f,c.qty).calories)} cal</div></div>
         <div class="goal-input"><input type="number" inputmode="decimal" step="any" value="${fmtQty(c.qty)}" style="width:64px" onchange="setCompQty(${i},this.value)"><span style="font-size:12px;color:var(--ink-faint);font-weight:600">${esc(f.servUnit||'srv')}</span></div>
         <button class="entry-x" onclick="rmComp(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>`;
@@ -958,7 +958,7 @@ function renderMealComps(){
   }
   const tmp={comps:mealDraft};const n=mealNut(tmp,1);
   document.getElementById('mealNutPrev').innerHTML=`
-    <div><div class="npv display">${r0(n.calories)}</div><div class="npl">kcal</div></div>
+    <div><div class="npv display">${r0(n.calories)}</div><div class="npl">cal</div></div>
     <div><div class="npv display" style="color:var(--carb)">${r0(n.totalCarbs)}g</div><div class="npl">Carbs</div></div>
     <div><div class="npv display" style="color:var(--protein)">${r0(n.protein)}g</div><div class="npl">Protein</div></div>
     <div><div class="npv display" style="color:var(--fat)">${r0(n.totalFat)}g</div><div class="npl">Fat</div></div>`;
@@ -995,8 +995,8 @@ function updateGoalPcts(){
   document.getElementById('pFat').textContent=pc(fat*9);
   const note=document.getElementById('goalNote');
   const diff=Math.round(macroCal-cal);
-  if(Math.abs(diff)<=20){note.className='goalnote';note.textContent='Your macros add up to '+Math.round(macroCal)+' kcal — right on target.';}
-  else{note.className='goalnote warn';note.textContent='Heads up: your macros total '+Math.round(macroCal)+' kcal, which is '+Math.abs(diff)+' '+(diff>0?'above':'below')+' your calorie goal. That\'s fine — just so you know.';}
+  if(Math.abs(diff)<=20){note.className='goalnote';note.textContent='Your macros add up to '+Math.round(macroCal)+' cal — right on target.';}
+  else{note.className='goalnote warn';note.textContent='Heads up: your macros total '+Math.round(macroCal)+' cal, which is '+Math.abs(diff)+' '+(diff>0?'above':'below')+' your calorie goal. That\'s fine — just so you know.';}
 }
 function saveGoals(){
   DB.goals={
@@ -1019,7 +1019,7 @@ function renderProgress(){
     const c=cals[i];const h=Math.max(c/max*100,c>0?4:1.5);
     const cls=c===0?'':(c>goal?'over':'has');
     const dd=parseYmd(d);
-    return `<div class="col" title="${c?r0(c)+' kcal':'no log'}"><div class="colbar ${cls}" style="height:${h}%"></div><div class="cl">${dd.getDate()}</div></div>`;
+    return `<div class="col" title="${c?r0(c)+' cal':'no log'}"><div class="colbar ${cls}" style="height:${h}%"></div><div class="cl">${dd.getDate()}</div></div>`;
   }).join('');
   // stats
   const logged=cals.filter(c=>c>0);
@@ -1179,28 +1179,57 @@ function onPhotoChosen(ev){
   if(!file)return;
   scanHandling=false;
   setScanStatus('<span class="spinner"></span> Reading photo…');
-  const url=URL.createObjectURL(file);
-  // Primary: Quagga2 — purpose-built to locate & read 1D grocery barcodes (EAN/UPC) from a photo.
+  // Read as a data URL (more reliable than a blob: URL), normalize onto a canvas, then decode.
+  const fr=new FileReader();
+  fr.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Downscale the long edge so bars stay crisp but the image isn't enormous.
+      const maxW=1600, scale=Math.min(1, maxW/Math.max(img.width,img.height));
+      const cw=Math.round(img.width*scale), ch=Math.round(img.height*scale);
+      const cnv=document.createElement('canvas');cnv.width=cw;cnv.height=ch;
+      const ctx=cnv.getContext('2d');ctx.drawImage(img,0,0,cw,ch);
+      let dataUrl;
+      try{dataUrl=cnv.toDataURL('image/jpeg',0.92);}catch(e){dataUrl=fr.result;}
+      decodePhoto(dataUrl,file);
+    };
+    img.onerror=()=>decodePhoto(fr.result,file);
+    img.src=fr.result;
+  };
+  fr.onerror=()=>{setScanStatus('Couldn\'t read that photo. Try again, or type the number below.');};
+  fr.readAsDataURL(file);
+}
+// Try Quagga with several settings (covers near/far, sharp/soft), then fall back.
+function decodePhoto(src,file){
   loadQuagga(err=>{
-    if(err){photoFallback(file,url);return;}
-    try{
-      Quagga.decodeSingle({
-        src:url,
-        numOfWorkers:0,
-        locate:true,
-        inputStream:{size:1920},
-        decoder:{readers:['ean_reader','ean_8_reader','upc_reader','upc_e_reader']}
-      },result=>{
-        if(result&&result.codeResult&&result.codeResult.code){
-          URL.revokeObjectURL(url);onScanFound(result.codeResult.code);
-        }else{
-          photoFallback(file,url);
-        }
-      });
-    }catch(e){photoFallback(file,url);}
+    if(err){photoFallback(file,null);return;}
+    const readers=['ean_reader','ean_8_reader','upc_reader','upc_e_reader','code_128_reader'];
+    const attempts=[
+      {patchSize:'medium',halfSample:true},
+      {patchSize:'large',halfSample:false},
+      {patchSize:'small',halfSample:false},
+      {patchSize:'x-large',halfSample:false}
+    ];
+    let i=0;
+    const tryNext=()=>{
+      if(i>=attempts.length){photoFallback(file,null);return;}
+      const a=attempts[i++];
+      try{
+        Quagga.decodeSingle({
+          src, numOfWorkers:0, locate:true,
+          inputStream:{size:1600},
+          locator:{patchSize:a.patchSize, halfSample:a.halfSample},
+          decoder:{readers}
+        },result=>{
+          if(result&&result.codeResult&&result.codeResult.code){onScanFound(result.codeResult.code);}
+          else{tryNext();}
+        });
+      }catch(e){tryNext();}
+    };
+    tryNext();
   });
 }
-// Backup decoder if Quagga can't read it.
+// Last-resort decoder.
 function photoFallback(file,url){
   loadScanner(err=>{
     if(err){if(url)URL.revokeObjectURL(url);setScanStatus('Couldn\'t read the photo (you may be offline). Type the barcode below.');return;}
@@ -1209,7 +1238,7 @@ function photoFallback(file,url){
     catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){setScanStatus('Type the barcode below.');return;} }
     inst.scanFile(file,false)
       .then(text=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); onScanFound(text); })
-      .catch(()=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); setScanStatus('Couldn\'t find a barcode in that photo. Get close so the barcode fills the frame, hold steady and straight-on, avoid glare — then retake, or type the number below.'); });
+      .catch(()=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); setScanStatus('Couldn\'t read a barcode in that photo. Get close so the barcode fills the frame, hold straight-on and steady, avoid glare — then retake, or type the number below.'); });
   });
 }
 function stopCamera(){
