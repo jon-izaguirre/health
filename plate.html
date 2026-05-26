@@ -1108,6 +1108,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 let currentBarcode='', pendingLogAfterSave=false, scanContext='log';
 let qrScanner=null, scanHandling=false;
 const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+const QUAGGA_SRC='https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js';
 
 function setScanStatus(html){document.getElementById('scanStatus').innerHTML=html;}
 function isStandaloneApp(){
@@ -1166,20 +1167,49 @@ function startCamera(){
   }catch(e){setScanStatus('Tap “Take a photo of the barcode”, or type the number below.');}
 }
 // Decode a barcode from a still photo taken with the native camera (works in installed-app mode).
+function loadQuagga(cb){
+  if(window.Quagga){cb();return;}
+  const s=document.createElement('script');s.src=QUAGGA_SRC;
+  s.onload=()=>cb();s.onerror=()=>cb('err');
+  document.head.appendChild(s);
+}
 function onPhotoChosen(ev){
   const file=ev.target.files&&ev.target.files[0];
   ev.target.value='';
   if(!file)return;
   scanHandling=false;
   setScanStatus('<span class="spinner"></span> Reading photo…');
+  const url=URL.createObjectURL(file);
+  // Primary: Quagga2 — purpose-built to locate & read 1D grocery barcodes (EAN/UPC) from a photo.
+  loadQuagga(err=>{
+    if(err){photoFallback(file,url);return;}
+    try{
+      Quagga.decodeSingle({
+        src:url,
+        numOfWorkers:0,
+        locate:true,
+        inputStream:{size:1920},
+        decoder:{readers:['ean_reader','ean_8_reader','upc_reader','upc_e_reader']}
+      },result=>{
+        if(result&&result.codeResult&&result.codeResult.code){
+          URL.revokeObjectURL(url);onScanFound(result.codeResult.code);
+        }else{
+          photoFallback(file,url);
+        }
+      });
+    }catch(e){photoFallback(file,url);}
+  });
+}
+// Backup decoder if Quagga can't read it.
+function photoFallback(file,url){
   loadScanner(err=>{
-    if(err){setScanStatus('Scanner tool couldn\'t load (offline?). Type the barcode below.');return;}
+    if(err){if(url)URL.revokeObjectURL(url);setScanStatus('Couldn\'t read the photo (you may be offline). Type the barcode below.');return;}
     let inst;
     try{ inst=new Html5Qrcode("scanFileRegion",{formatsToSupport:barcodeFormats(),verbose:false}); }
-    catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){setScanStatus('Couldn\'t start the reader. Type the barcode below.');return;} }
+    catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){setScanStatus('Type the barcode below.');return;} }
     inst.scanFile(file,false)
-      .then(text=>{ try{inst.clear();}catch(e){} onScanFound(text); })
-      .catch(()=>{ try{inst.clear();}catch(e){} setScanStatus('Couldn\'t find a barcode in that photo. Try again — fill the frame with the barcode and keep it sharp — or type the number below.'); });
+      .then(text=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); onScanFound(text); })
+      .catch(()=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); setScanStatus('Couldn\'t find a barcode in that photo. Get close so the barcode fills the frame, hold steady and straight-on, avoid glare — then retake, or type the number below.'); });
   });
 }
 function stopCamera(){
