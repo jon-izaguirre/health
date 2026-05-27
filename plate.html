@@ -264,6 +264,7 @@
   .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
   @keyframes spin{to{transform:rotate(360deg);}}
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="app">
@@ -347,7 +348,10 @@
   <section class="screen" id="s-settings">
     <div class="screen-title display">Settings</div>
 
-    <div class="section-label" style="margin-top:0;">Daily Goals</div>
+    <div class="section-label" style="margin-top:0;">Cloud Sync</div>
+    <div class="card" id="syncBox" style="padding:18px;"></div>
+
+    <div class="section-label">Daily Goals</div>
     <div class="listcard">
       <div class="goal-row">
         <div class="gl">Calories</div>
@@ -547,12 +551,17 @@ const MEAL_LABEL={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snacks:'Sn
 const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD'];
 
 let DB=load();
-function blankDB(){return{goals:{calories:2000,carbs:200,protein:150,fat:60},foods:{},meals:{},log:{}};}
+function blankDB(){return{goals:{calories:2000,carbs:200,protein:150,fat:60},foods:{},meals:{},log:{},updatedAt:''};}
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.assign(blankDB(),d);}}catch(e){console.warn(e);}
   return blankDB();
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast('Could not save — storage full?');}}
+function save(opts){
+  opts=opts||{};
+  if(!opts.keepStamp) DB.updatedAt=new Date().toISOString();
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast('Could not save — storage full?');}
+  if(!opts.noPush && typeof schedulePush==='function') schedulePush();
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 
 /* ============ DATE ============ */
@@ -1352,9 +1361,180 @@ function sodiumMg(nm){
 }
 function round1(n){return Math.round(n*10)/10;}
 
+/* ============================================================
+   DRIVE SYNC  (reusable across Health apps — only APP_FILE/health_app differ)
+   Offline-first: localStorage is the instant working cache; Drive is the
+   durable source of truth. On open: pull (newer wins). On change: debounced push.
+   ============================================================ */
+const DRIVE={
+  CLIENT_ID:'732621876336-m9qfqnfse5oe22kv0ff24m4b6q2967ih.apps.googleusercontent.com',
+  SCOPE:'https://www.googleapis.com/auth/drive.file',
+  FOLDER:'Health',
+  FILE:'plate-latest.json',
+  LINK_KEY:'plate.drive.linked'
+};
+let gTokenClient=null, gAccessToken=null, gFolderId=null, gSyncState='off', gLastSync=null, pushTimer=null;
+
+function driveLinked(){try{return localStorage.getItem(DRIVE.LINK_KEY)==='1';}catch(e){return false;}}
+function setLinked(v){try{v?localStorage.setItem(DRIVE.LINK_KEY,'1'):localStorage.removeItem(DRIVE.LINK_KEY);}catch(e){}}
+function setSync(state,note){gSyncState=state;if(state==='synced')gLastSync=new Date();renderSyncUI(note);}
+
+function gisReady(){return !!(window.google && google.accounts && google.accounts.oauth2);}
+function ensureTokenClient(){
+  if(gTokenClient||!gisReady())return gTokenClient;
+  gTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:DRIVE.CLIENT_ID, scope:DRIVE.SCOPE,
+    callback:(resp)=>{
+      if(resp&&resp.access_token){gAccessToken=resp.access_token;if(gTokenResolve){gTokenResolve(true);gTokenResolve=null;}}
+      else{if(gTokenResolve){gTokenResolve(false);gTokenResolve=null;}}
+    },
+    error_callback:()=>{if(gTokenResolve){gTokenResolve(false);gTokenResolve=null;}}
+  });
+  return gTokenClient;
+}
+let gTokenResolve=null;
+function getToken(interactive){
+  return new Promise((resolve)=>{
+    if(!ensureTokenClient()){resolve(false);return;}
+    gTokenResolve=resolve;
+    try{gTokenClient.requestAccessToken({prompt:interactive?'consent':''});}
+    catch(e){gTokenResolve=null;resolve(false);}
+  });
+}
+async function driveFetch(url,opts){
+  opts=opts||{};opts.headers=Object.assign({Authorization:'Bearer '+gAccessToken},opts.headers||{});
+  let r=await fetch(url,opts);
+  if(r.status===401){ const ok=await getToken(false); if(!ok)throw new Error('auth'); opts.headers.Authorization='Bearer '+gAccessToken; r=await fetch(url,opts); }
+  if(!r.ok)throw new Error('drive '+r.status);
+  return r;
+}
+async function ensureFolder(){
+  if(gFolderId)return gFolderId;
+  const q=encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${DRIVE.FOLDER}' and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id)`);
+  const d=await r.json();
+  if(d.files&&d.files.length){gFolderId=d.files[0].id;}
+  else{const cr=await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:DRIVE.FOLDER,mimeType:'application/vnd.google-apps.folder'})});gFolderId=(await cr.json()).id;}
+  return gFolderId;
+}
+async function driveFindFile(name){
+  const q=encodeURIComponent(`name='${name}' and '${gFolderId}' in parents and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)`);
+  const d=await r.json();return (d.files&&d.files[0])||null;
+}
+async function driveSave(name,obj){
+  const json=JSON.stringify(obj,null,2);
+  const existing=await driveFindFile(name);
+  if(existing){
+    await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:json});
+  }else{
+    const b='health'+Date.now();
+    const meta={name,mimeType:'application/json',parents:[gFolderId]};
+    const body=`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`+JSON.stringify(meta)+`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n`+json+`\r\n--${b}--`;
+    await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body});
+  }
+}
+async function driveLoad(name){
+  const f=await driveFindFile(name);if(!f)return null;
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);
+  return await r.json();
+}
+function buildEnvelope(){
+  return {health_app:'plate',version:1,exportedAt:new Date().toISOString(),units:'us',daily:buildDailySummary(),raw:DB};
+}
+// Reconcile local vs Drive by updatedAt (last-write-wins). Returns what happened.
+async function reconcile(){
+  await ensureFolder();
+  const remote=await driveLoad(DRIVE.FILE);
+  const remoteDB=(remote && remote.raw && remote.raw.foods)?remote.raw:null;
+  const localT=DB.updatedAt||'', remoteT=(remoteDB&&remoteDB.updatedAt)||'';
+  if(!remoteDB){ await driveSave(DRIVE.FILE,buildEnvelope()); return 'pushed-first'; }
+  if(remoteT>localT){
+    DB=Object.assign(blankDB(),remoteDB);
+    save({keepStamp:true,noPush:true});
+    renderToday();renderGoals&&renderGoals();renderFoods&&renderFoods();
+    return 'pulled';
+  }else if(localT>remoteT){
+    await driveSave(DRIVE.FILE,buildEnvelope());
+    return 'pushed';
+  }
+  return 'in-sync';
+}
+function schedulePush(){
+  if(!driveLinked())return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async()=>{
+    if(!gAccessToken){const ok=await getToken(false);if(!ok){setSync('error','Tap Sync to reconnect');return;}}
+    try{ setSync('syncing'); await ensureFolder(); await driveSave(DRIVE.FILE,buildEnvelope()); setSync('synced'); }
+    catch(e){ setSync(navigator.onLine?'error':'offline'); }
+  },2500);
+}
+// User taps "Connect"
+async function linkDrive(){
+  if(!gisReady()){toast('Sign-in still loading — try again in a second');return;}
+  setSync('connecting');
+  const ok=await getToken(true);
+  if(!ok){setSync('off','Sign-in cancelled');return;}
+  setLinked(true);
+  try{ const what=await reconcile(); setSync('synced', what==='pulled'?'Loaded your data from Drive':null); toast('Google Drive connected'); }
+  catch(e){ setSync('error','Couldn’t sync — try again'); }
+}
+// User taps "Sync now"
+async function syncNow(){
+  if(!driveLinked()){linkDrive();return;}
+  if(!gAccessToken){const ok=await getToken(false);if(!ok){const ok2=await getToken(true);if(!ok2){setSync('error','Reconnect needed');return;}}}
+  setSync('syncing');
+  try{ const what=await reconcile(); setSync('synced', what==='pulled'?'Pulled newer data from Drive':null); }
+  catch(e){ setSync(navigator.onLine?'error':'offline'); }
+}
+function unlinkDrive(){
+  setLinked(false);gAccessToken=null;gFolderId=null;
+  if(window.google&&google.accounts&&google.accounts.oauth2&&gAccessToken){try{google.accounts.oauth2.revoke(gAccessToken);}catch(e){}}
+  setSync('off');toast('Disconnected (your Drive file is kept)');
+}
+// On app open: if previously linked, silently reconnect and pull.
+async function autoConnectDrive(){
+  if(!driveLinked())return;
+  let tries=0;
+  while(!gisReady()&&tries<25){await new Promise(r=>setTimeout(r,200));tries++;}
+  if(!gisReady()){setSync('error','Sign-in didn’t load');return;}
+  setSync('connecting');
+  const ok=await getToken(false);
+  if(!ok){setSync('error','Tap Sync to reconnect');return;}
+  try{ const what=await reconcile(); setSync('synced', what==='pulled'?'Loaded latest from Drive':null); }
+  catch(e){ setSync(navigator.onLine?'error':'offline'); }
+}
+function renderSyncUI(note){
+  const el=document.getElementById('syncBox');if(!el)return;
+  const map={
+    off:['Not connected','Your data is on this device only. Connect Drive to back it up and sync across phones.'],
+    connecting:['Connecting…',''],
+    syncing:['Syncing…',''],
+    synced:['Connected ✓', gLastSync?('Last synced '+gLastSync.toLocaleTimeString()):''],
+    error:['Sync issue', note||'Tap Sync now to retry.'],
+    offline:['Offline','Changes are saved on-device and will sync when you’re back online.']
+  };
+  const [title,sub]=map[gSyncState]||map.off;
+  const linked=driveLinked();
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div><div style="font-size:15px;font-weight:600;">Google Drive</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px;">${title}${note&&gSyncState!=='error'?' · '+note:''}</div></div>
+      <span style="width:10px;height:10px;border-radius:50%;flex:none;background:${gSyncState==='synced'?'var(--green-bright)':gSyncState==='error'?'var(--danger)':'var(--ink-faint)'}"></span>
+    </div>
+    <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-top:8px;">${sub}</div>
+    <div class="btn-pair" style="margin-top:14px;">
+      ${linked
+        ? `<button class="btn btn-soft" onclick="syncNow()">Sync now</button><button class="btn btn-ghost" onclick="unlinkDrive()">Disconnect</button>`
+        : `<button class="btn btn-primary" onclick="linkDrive()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Connect Google Drive</button>`}
+    </div>`;
+}
+
 /* ============ INIT ============ */
 buildUnitSelect();
 renderToday();
+renderSyncUI();
+autoConnectDrive();
 </script>
 </body>
 </html>
