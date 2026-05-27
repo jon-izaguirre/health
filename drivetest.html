@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drive Sync Test</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#FAF6EE;--card:#FFF;--ink:#23231F;--ink-soft:#6E6B61;--line:#ECE6D8;--green:#2E5D3B;--green-wash:#EAF1E8;--danger:#B4503C;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',-apple-system,sans-serif;padding:24px 18px 60px;max-width:520px;margin:0 auto;}
+  h1{font-family:'Fraunces',serif;font-weight:600;font-size:26px;letter-spacing:-.01em;}
+  p.sub{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-top:-6px;}
+  .btn{display:block;width:100%;padding:15px;border:none;border-radius:14px;font-family:inherit;font-size:15.5px;font-weight:600;margin-top:12px;cursor:pointer;transition:opacity .15s;}
+  .btn:disabled{opacity:.4;}
+  .btn-primary{background:var(--green);color:#fff;}
+  .btn-soft{background:var(--green-wash);color:var(--green);}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-top:18px;box-shadow:0 6px 20px rgba(35,35,31,.05);}
+  .lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A8A498;margin-bottom:8px;}
+  #log{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink-soft);}
+  .ok{color:var(--green);font-weight:600;}
+  .err{color:var(--danger);font-weight:600;}
+  .status{font-size:14px;font-weight:600;margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--green-wash);color:var(--green);}
+  .status.bad{background:#F7E7E1;color:var(--danger);}
+</style>
+</head>
+<body>
+  <h1>Drive Sync Test</h1>
+  <p class="sub">Proving the Google Drive loop works before we build it into the real apps. Connect, write a test file, read it back.</p>
+
+  <div id="status" class="status">Loading Google sign-in…</div>
+
+  <button class="btn btn-primary" id="connectBtn" onclick="connect()" disabled>Connect Google Drive</button>
+  <button class="btn btn-soft" id="writeBtn" onclick="writeTest()" disabled>Write a test file to Drive</button>
+  <button class="btn btn-soft" id="readBtn" onclick="readTest()" disabled>Read it back from Drive</button>
+
+  <div class="card">
+    <div class="lbl">Activity log</div>
+    <div id="log">—</div>
+  </div>
+
+<script>
+"use strict";
+/* ============================================================
+   REUSABLE DRIVE SYNC CORE  (this is what will move into the apps)
+   ============================================================ */
+const CLIENT_ID='732621876336-m9qfqnfse5oe22kv0ff24m4b6q2967ih.apps.googleusercontent.com';
+const SCOPE='https://www.googleapis.com/auth/drive.file';
+const FOLDER='Health';
+const TEST_FILE='health-drivetest.json';
+
+let tokenClient=null, accessToken=null, folderId=null, gisReady=false;
+
+function log(msg,cls){const el=document.getElementById('log');const t=new Date().toLocaleTimeString();el.innerHTML+=(el.innerHTML==='—'?'':'\n')+`<span class="${cls||''}">[${t}] ${msg}</span>`;if(el.innerHTML.startsWith('—'))el.innerHTML=el.innerHTML.slice(1);}
+function setStatus(msg,bad){const s=document.getElementById('status');s.textContent=msg;s.className='status'+(bad?' bad':'');}
+
+// Wait for the Google Identity Services script to load.
+(function waitForGis(){
+  if(window.google && google.accounts && google.accounts.oauth2){
+    gisReady=true;
+    tokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:CLIENT_ID, scope:SCOPE,
+      callback:(resp)=>{
+        if(resp && resp.access_token){
+          accessToken=resp.access_token;
+          log('Connected — got an access token.','ok');
+          setStatus('Connected to Google Drive ✓');
+          document.getElementById('writeBtn').disabled=false;
+          document.getElementById('readBtn').disabled=false;
+          ensureFolder();
+        }else{
+          log('No access token returned.','err');
+        }
+      },
+      error_callback:(err)=>{ log('Sign-in error: '+(err&&err.type?err.type:JSON.stringify(err)),'err'); setStatus('Sign-in failed — see log',true); }
+    });
+    document.getElementById('connectBtn').disabled=false;
+    setStatus('Ready. Tap “Connect Google Drive”.');
+    log('Google sign-in library loaded.','ok');
+  }else{
+    setTimeout(waitForGis,200);
+  }
+})();
+
+function connect(){
+  if(!gisReady){setStatus('Still loading sign-in… try again in a moment.',true);return;}
+  log('Requesting access… (a Google popup should appear)');
+  try{ tokenClient.requestAccessToken({prompt:''}); }
+  catch(e){ log('Could not open sign-in: '+e.message,'err'); }
+}
+
+// Authenticated fetch helper.
+async function driveFetch(url,opts){
+  opts=opts||{};
+  opts.headers=Object.assign({Authorization:'Bearer '+accessToken}, opts.headers||{});
+  const r=await fetch(url,opts);
+  if(r.status===401){ throw new Error('Token expired — tap Connect again.'); }
+  if(!r.ok){ const t=await r.text(); throw new Error('Drive API '+r.status+': '+t.slice(0,200)); }
+  return r;
+}
+
+// Find or create the "Health" folder (app-owned, drive.file scope).
+async function ensureFolder(){
+  try{
+    log('Looking for "Health" folder…');
+    const q=encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${FOLDER}' and trashed=false`);
+    const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`);
+    const data=await r.json();
+    if(data.files && data.files.length){
+      folderId=data.files[0].id;
+      log('Found Health folder ('+folderId+').','ok');
+    }else{
+      log('Not found — creating Health folder…');
+      const cr=await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id,name',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name:FOLDER, mimeType:'application/vnd.google-apps.folder'})
+      });
+      folderId=(await cr.json()).id;
+      log('Created Health folder ('+folderId+').','ok');
+    }
+  }catch(e){ log(e.message,'err'); }
+}
+
+// Find a file by name inside the Health folder.
+async function findFile(name){
+  const q=encodeURIComponent(`name='${name}' and '${folderId}' in parents and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)`);
+  const data=await r.json();
+  return (data.files && data.files[0]) || null;
+}
+
+// Create or overwrite a JSON file in the Health folder.
+async function saveFile(name,obj){
+  const existing=await findFile(name);
+  const json=JSON.stringify(obj,null,2);
+  if(existing){
+    const r=await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media&fields=id,name,modifiedTime`,{
+      method:'PATCH', headers:{'Content-Type':'application/json'}, body:json
+    });
+    return await r.json();
+  }else{
+    const boundary='health'+Date.now();
+    const meta={name, mimeType:'application/json', parents:[folderId]};
+    const body=`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`+JSON.stringify(meta)+
+               `\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n`+json+`\r\n--${boundary}--`;
+    const r=await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime',{
+      method:'POST', headers:{'Content-Type':'multipart/related; boundary='+boundary}, body
+    });
+    return await r.json();
+  }
+}
+
+// Download and parse a JSON file's contents.
+async function loadFile(name){
+  const f=await findFile(name);
+  if(!f) return null;
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);
+  return { meta:f, data:await r.json() };
+}
+
+/* ============================================================
+   TEST BUTTONS
+   ============================================================ */
+async function writeTest(){
+  if(!folderId){ log('Folder not ready yet — wait a second and retry.','err'); return; }
+  try{
+    const payload={ message:'Hello from Plate!', writtenAt:new Date().toISOString(), randomCheck:Math.floor(Math.random()*100000) };
+    log('Writing test file with randomCheck='+payload.randomCheck+' …');
+    const res=await saveFile(TEST_FILE,payload);
+    log('Saved ✓  file id '+res.id+', modified '+res.modifiedTime,'ok');
+    setStatus('Wrote test file to Drive ✓');
+  }catch(e){ log(e.message,'err'); setStatus('Write failed — see log',true); }
+}
+async function readTest(){
+  try{
+    log('Reading test file back…');
+    const res=await loadFile(TEST_FILE);
+    if(!res){ log('No test file found yet — write one first.','err'); return; }
+    log('Read ✓  contents: '+JSON.stringify(res.data),'ok');
+    setStatus('Read back from Drive ✓ (randomCheck='+res.data.randomCheck+')');
+  }catch(e){ log(e.message,'err'); setStatus('Read failed — see log',true); }
+}
+</script>
+</body>
+</html>
