@@ -1397,7 +1397,7 @@ function getToken(interactive){
   return new Promise((resolve)=>{
     if(!ensureTokenClient()){resolve(false);return;}
     gTokenResolve=resolve;
-    try{gTokenClient.requestAccessToken({prompt:interactive?'consent':''});}
+    try{gTokenClient.requestAccessToken({prompt:interactive?'':'none'});}
     catch(e){gTokenResolve=null;resolve(false);}
   });
 }
