@@ -196,6 +196,8 @@
   .nutri-grid .field{margin-bottom:0;}
   .section-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:22px 0 13px;}
   .disclose{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line);margin-top:10px;font-size:14.5px;font-weight:600;color:var(--green);}
+  .fiber-toggle{background:none;border:none;padding:6px 0 0;font-size:12.5px;font-weight:600;color:var(--green);text-align:left;font-family:'Hanken Grotesk',sans-serif;}
+  .fiber-hint{font-size:11.5px;color:var(--amber);margin-top:8px;line-height:1.5;}
   .disclose svg{width:18px;height:18px;transition:transform .2s;}
   .disclose.open svg{transform:rotate(180deg);}
   .collapse{display:none;}
@@ -365,9 +367,6 @@
     <div class="section-label" style="margin-top:0;">Cloud Sync</div>
     <div class="card" id="syncBox" style="padding:18px;"></div>
 
-    <div class="section-label">Food Search</div>
-    <div class="card" id="usdaBox" style="padding:18px;"></div>
-
     <div class="section-label">Daily Goals</div>
     <div class="listcard">
       <div class="goal-row">
@@ -389,6 +388,9 @@
     </div>
     <div class="goalnote" id="goalNote"></div>
 
+    <div class="section-label">Food Search</div>
+    <div class="card" id="usdaBox" style="padding:18px;"></div>
+
     <div class="section-label">Your Data</div>
     <div class="ab card" style="padding:18px;">
       Everything lives on this device only — nothing is sent anywhere. Back up regularly and before switching phones.
@@ -404,7 +406,7 @@
     <div class="ab card" style="padding:18px;">
       <b>Plate</b> is yours. It runs entirely on your device with no account, no server, and no connection to any AI or company. It will keep working as long as you keep the file — and your backups are how you carry it to a new phone or share it with a friend.
     </div>
-    <div class="mini-note">v1 · made for you</div>
+    <div class="mini-note" id="buildNote">v1 · made for you</div>
   </section>
 
 </div>
@@ -524,6 +526,16 @@
         <div class="field"><label>Sodium (mg)</label><input type="number" inputmode="decimal" step="any" id="n_sodium"></div>
         <div class="field"><label>Potassium (mg)</label><input type="number" inputmode="decimal" step="any" id="n_potassium"></div>
         <div class="field"><label>Dietary Fiber (g)</label><input type="number" inputmode="decimal" step="any" id="n_fiber"></div>
+        <div class="field" style="grid-column:1/-1;">
+          <button type="button" class="fiber-toggle" id="fiberToggle" onclick="toggleFiberBreakdown()">+ Break into soluble / insoluble</button>
+          <div id="fiberBreak" style="display:none;">
+            <div class="nutri-grid" style="margin-top:8px;">
+              <div class="field"><label>Soluble fiber (g)</label><input type="number" inputmode="decimal" step="any" id="n_fiberSoluble" oninput="onFiberSubInput()"></div>
+              <div class="field"><label>Insoluble fiber (g)</label><input type="number" inputmode="decimal" step="any" id="n_fiberInsoluble" oninput="onFiberSubInput()"></div>
+            </div>
+            <div class="fiber-hint" id="fiberHint"></div>
+          </div>
+        </div>
         <div class="field"><label>Sugars (g)</label><input type="number" inputmode="decimal" step="any" id="n_sugars"></div>
         <div class="field"><label>Added Sugars (g)</label><input type="number" inputmode="decimal" step="any" id="n_addedSugars"></div>
         <div class="field"><label>Sugar Alcohols (g)</label><input type="number" inputmode="decimal" step="any" id="n_sugarAlcohols"></div>
@@ -587,7 +599,8 @@
 const KEY='plate.data.v1';
 const MEALS=['breakfast','lunch','dinner','snacks'];
 const MEAL_LABEL={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snacks:'Snacks'};
-const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD'];
+const APP_BUILD='2026-06-02.1';
+const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','fiberSoluble','fiberInsoluble','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD'];
 
 let DB=load();
 function blankDB(){return{goals:{calories:2000,carbs:200,protein:150,fat:60},foods:{},meals:{},log:{},updatedAt:''};}
@@ -751,8 +764,8 @@ function setPickerExtras(show){const s=document.getElementById('pickScanBtn'),c=
 function cancelPicker(){closeSheet('picker');if(pickerMode==='meal')openSheet('meal');}
 function renderPicker(){
   const q=document.getElementById('pickSearch').value.toLowerCase().trim();
-  const meals=pickerMode==='log'?Object.values(DB.meals):[];
-  const foods=Object.values(DB.foods);
+  const meals=pickerMode==='log'?Object.values(DB.meals).filter(x=>!x.deleted):[];
+  const foods=Object.values(DB.foods).filter(x=>!x.deleted);
   let items=[...meals.map(x=>({...x,_type:'meal'})),...foods.map(x=>({...x,_type:'food'}))];
   if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
   items.sort((a,b)=>(b.used||0)-(a.used||0)||a.name.localeCompare(b.name));
@@ -919,8 +932,8 @@ function renderFoods(){
   const q=(document.getElementById('foodSearch').value||'').toLowerCase().trim();
   const meals=foodsTab==='meals';
   let items=meals
-    ?Object.values(DB.meals).map(x=>({...x,_type:'meal'}))
-    :Object.values(DB.foods).map(x=>({...x,_type:'food'}));
+    ?Object.values(DB.meals).filter(x=>!x.deleted).map(x=>({...x,_type:'meal'}))
+    :Object.values(DB.foods).filter(x=>!x.deleted).map(x=>({...x,_type:'food'}));
   if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
   items.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById('foodsList');
@@ -953,6 +966,7 @@ function openCreateFood(forLog){
   NUT_FIELDS.forEach(f=>{const el=document.getElementById('n_'+f);if(el)el.value='';});
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
+  setFiberBreakdown(false);
   openSheet('food');
 }
 function editFood(id){
@@ -966,6 +980,7 @@ function editFood(id){
   NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);if(el){const v=f.nut[k];el.value=(v===0||v===undefined||v===null)?'':v;}});
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
+  setFiberBreakdown(!!(f.nut.fiberSoluble||f.nut.fiberInsoluble));
   openSheet('food');
 }
 /* ---- Unit dropdown helpers ---- */
@@ -1000,6 +1015,23 @@ function onUnitChange(){
   else{custom.style.display='none';}
 }
 function toggleMore(){document.getElementById('moreNutrients').classList.toggle('open');document.getElementById('moreBtn').classList.toggle('open');}
+function setFiberBreakdown(open){
+  const b=document.getElementById('fiberBreak'),t=document.getElementById('fiberToggle');
+  if(!b||!t)return;
+  b.style.display=open?'block':'none';
+  t.classList.toggle('open',open);
+  t.textContent=open?'– Hide soluble / insoluble':'+ Break into soluble / insoluble';
+  if(!open){const h=document.getElementById('fiberHint');if(h)h.textContent='';}
+}
+function toggleFiberBreakdown(){setFiberBreakdown(document.getElementById('fiberBreak').style.display==='none');}
+function onFiberSubInput(){
+  const solEl=document.getElementById('n_fiberSoluble'),insEl=document.getElementById('n_fiberInsoluble'),tot=document.getElementById('n_fiber'),hint=document.getElementById('fiberHint');
+  const sol=parseFloat(solEl.value),ins=parseFloat(insEl.value);
+  const sum=(isFinite(sol)?sol:0)+(isFinite(ins)?ins:0);
+  if(tot.value===''&&sum>0)tot.value=round1(sum);       // total stays canonical; only auto-fill when blank
+  const totv=parseFloat(tot.value);
+  hint.textContent=(isFinite(totv)&&sum>totv+0.05)?'Soluble + insoluble add up to more than the total above.':'';
+}
 function saveFood(){
   const name=document.getElementById('fName').value.trim();
   if(!name){toast('Name is required');return;}
@@ -1026,8 +1058,9 @@ function saveFood(){
 }
 function deleteFood(){
   if(!editingFood)return;
-  if(!confirm('Delete this food? Past log entries using it will show as deleted.'))return;
-  delete DB.foods[editingFood];save();closeSheet('food');renderFoods();renderToday();toast('Deleted');
+  if(!confirm('Delete this food? It leaves your library, but past days that logged it keep their numbers.'))return;
+  const f=DB.foods[editingFood];if(f){f.deleted=true;f.deletedAt=new Date().toISOString();}
+  save();closeSheet('food');renderFoods();renderToday();toast('Deleted');
 }
 
 /* ============ CREATE / EDIT MEAL ============ */
@@ -1065,7 +1098,7 @@ function saveMeal(){
   const m={id:editingMeal||uid(),name,comps:mealDraft.map(c=>({...c})),used:editingMeal?DB.meals[editingMeal].used:0};
   DB.meals[m.id]=m;save();closeSheet('meal');renderFoods();renderToday();toast(editingMeal?'Meal updated':'Meal saved');
 }
-function deleteMeal(){if(!editingMeal)return;if(!confirm('Delete this meal?'))return;delete DB.meals[editingMeal];save();closeSheet('meal');renderFoods();renderToday();toast('Deleted');}
+function deleteMeal(){if(!editingMeal)return;if(!confirm('Delete this meal? It leaves your library, but past days that logged it keep their numbers.'))return;const m=DB.meals[editingMeal];if(m){m.deleted=true;m.deletedAt=new Date().toISOString();}save();closeSheet('meal');renderFoods();renderToday();toast('Deleted');}
 
 /* ============ GOALS ============ */
 function renderGoals(){
@@ -1136,7 +1169,7 @@ function buildDailySummary(){
   Object.keys(DB.log||{}).forEach(date=>{
     const t=dayTotals(date);
     if(r0(t.calories)===0 && r0(t.protein)===0 && r0(t.totalCarbs)===0 && r0(t.totalFat)===0)return;
-    out[date]={
+    const row={
       calories:r0(t.calories),
       protein_g:r0(t.protein),
       carbs_g:r0(t.totalCarbs),
@@ -1145,6 +1178,9 @@ function buildDailySummary(){
       sugar_g:r0(t.sugars),
       sodium_mg:r0(t.sodium)
     };
+    if(r0(t.fiberSoluble)>0)row.fiber_soluble_g=r0(t.fiberSoluble);
+    if(r0(t.fiberInsoluble)>0)row.fiber_insoluble_g=r0(t.fiberInsoluble);
+    out[date]=row;
   });
   return out;
 }
@@ -1199,7 +1235,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 
 /* ============ BARCODE SCANNER + OPEN FOOD FACTS ============ */
 let currentBarcode='', pendingLogAfterSave=false, scanContext='log', currentSource='', currentFdcId='';
-let qrScanner=null, scanHandling=false, lastScanCode='';
+let qrScanner=null, scanHandling=false, lastScanCode='', decodeGen=0, decodeTimer=null;
 const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const QUAGGA_SRC='https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js';
 
@@ -1235,8 +1271,10 @@ function openScan(ctx){
 }
 function loadScanner(cb){
   if(window.Html5Qrcode){cb();return;}
+  let done=false;const fin=e=>{if(done)return;done=true;cb(e);};
   const s=document.createElement('script');s.src=SCANNER_SRC;
-  s.onload=()=>cb();s.onerror=()=>cb('err');
+  s.onload=()=>fin();s.onerror=()=>fin('err');
+  setTimeout(()=>fin('err'),scanLibMs());
   document.head.appendChild(s);
 }
 function startCamera(){
@@ -1262,21 +1300,36 @@ function startCamera(){
 // Decode a barcode from a still photo taken with the native camera (works in installed-app mode).
 function loadQuagga(cb){
   if(window.Quagga){cb();return;}
+  let done=false;const fin=e=>{if(done)return;done=true;cb(e);};
   const s=document.createElement('script');s.src=QUAGGA_SRC;
-  s.onload=()=>cb();s.onerror=()=>cb('err');
+  s.onload=()=>fin();s.onerror=()=>fin('err');
+  setTimeout(()=>fin('err'),scanLibMs());
   document.head.appendChild(s);
 }
+/* Photo-decode safety: a generation counter invalidates stale callbacks, and a hard
+   deadline guarantees the "Reading photo…" spinner can never hang (covers a slow/stuck
+   decode or a CDN library load that never resolves). Durations are overridable for tests. */
+function scanLibMs(){return (typeof window!=='undefined'&&window.PLATE_SCAN_LIB_MS)||6000;}
+function scanDecodeMs(){return (typeof window!=='undefined'&&window.PLATE_SCAN_DECODE_MS)||10000;}
+function decodeStale(gen){return gen!==decodeGen;}
+function decodeSucceed(gen,code){if(decodeStale(gen))return;clearTimeout(decodeTimer);decodeGen++;onScanFound(code);}
+function decodeFail(gen,msg){if(decodeStale(gen))return;clearTimeout(decodeTimer);decodeGen++;scanHandling=false;setScanStatus(msg);}
 function onPhotoChosen(ev){
   const file=ev.target.files&&ev.target.files[0];
   ev.target.value='';
   if(!file)return;
   scanHandling=false;
+  const gen=++decodeGen;
+  clearTimeout(decodeTimer);
+  decodeTimer=setTimeout(()=>{ if(gen!==decodeGen)return; decodeGen++; scanHandling=false; setScanStatus('Couldn’t read the barcode in time. Retake it — fill the frame, hold straight-on with good light — or type the number below.'); },scanDecodeMs());
   setScanStatus('<span class="spinner"></span> Reading photo…');
   // Read as a data URL (more reliable than a blob: URL), normalize onto a canvas, then decode.
   const fr=new FileReader();
   fr.onload=()=>{
+    if(decodeStale(gen))return;
     const img=new Image();
     img.onload=()=>{
+      if(decodeStale(gen))return;
       // Downscale the long edge so bars stay crisp but the image isn't enormous.
       const maxW=1600, scale=Math.min(1, maxW/Math.max(img.width,img.height));
       const cw=Math.round(img.width*scale), ch=Math.round(img.height*scale);
@@ -1284,18 +1337,19 @@ function onPhotoChosen(ev){
       const ctx=cnv.getContext('2d');ctx.drawImage(img,0,0,cw,ch);
       let dataUrl;
       try{dataUrl=cnv.toDataURL('image/jpeg',0.92);}catch(e){dataUrl=fr.result;}
-      decodePhoto(dataUrl,file);
+      decodePhoto(dataUrl,file,gen);
     };
-    img.onerror=()=>decodePhoto(fr.result,file);
+    img.onerror=()=>decodePhoto(fr.result,file,gen);
     img.src=fr.result;
   };
-  fr.onerror=()=>{setScanStatus('Couldn\'t read that photo. Try again, or type the number below.');};
+  fr.onerror=()=>decodeFail(gen,'Couldn’t read that photo. Try again, or type the number below.');
   fr.readAsDataURL(file);
 }
 // Try Quagga with several settings (covers near/far, sharp/soft), then fall back.
-function decodePhoto(src,file){
+function decodePhoto(src,file,gen){
   loadQuagga(err=>{
-    if(err){photoFallback(file,null);return;}
+    if(decodeStale(gen))return;
+    if(err){photoFallback(file,gen);return;}
     const readers=['ean_reader','ean_8_reader','upc_reader','upc_e_reader','code_128_reader'];
     const attempts=[
       {patchSize:'medium',halfSample:true},
@@ -1305,7 +1359,8 @@ function decodePhoto(src,file){
     ];
     let i=0;
     const tryNext=()=>{
-      if(i>=attempts.length){photoFallback(file,null);return;}
+      if(decodeStale(gen))return;
+      if(i>=attempts.length){photoFallback(file,gen);return;}
       const a=attempts[i++];
       try{
         Quagga.decodeSingle({
@@ -1314,7 +1369,8 @@ function decodePhoto(src,file){
           locator:{patchSize:a.patchSize, halfSample:a.halfSample},
           decoder:{readers}
         },result=>{
-          if(result&&result.codeResult&&result.codeResult.code){onScanFound(result.codeResult.code);}
+          if(decodeStale(gen))return;
+          if(result&&result.codeResult&&result.codeResult.code){decodeSucceed(gen,result.codeResult.code);}
           else{tryNext();}
         });
       }catch(e){tryNext();}
@@ -1323,15 +1379,16 @@ function decodePhoto(src,file){
   });
 }
 // Last-resort decoder.
-function photoFallback(file,url){
+function photoFallback(file,gen){
   loadScanner(err=>{
-    if(err){if(url)URL.revokeObjectURL(url);setScanStatus('Couldn\'t read the photo (you may be offline). Type the barcode below.');return;}
+    if(decodeStale(gen))return;
+    if(err){decodeFail(gen,'Couldn’t load the barcode reader (you may be offline). Type the number below.');return;}
     let inst;
     try{ inst=new Html5Qrcode("scanFileRegion",{formatsToSupport:barcodeFormats(),verbose:false}); }
-    catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){setScanStatus('Type the barcode below.');return;} }
+    catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){decodeFail(gen,'Type the barcode below.');return;} }
     inst.scanFile(file,false)
-      .then(text=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); onScanFound(text); })
-      .catch(()=>{ try{inst.clear();}catch(e){} if(url)URL.revokeObjectURL(url); setScanStatus('Couldn\'t read a barcode in that photo. Get close so the barcode fills the frame, hold straight-on and steady, avoid glare — then retake, or type the number below.'); });
+      .then(text=>{ try{inst.clear();}catch(e){} decodeSucceed(gen,text); })
+      .catch(()=>{ try{inst.clear();}catch(e){} decodeFail(gen,'Couldn’t read a barcode in that photo. Get close so the barcode fills the frame, hold straight-on and steady, avoid glare — then retake, or type the number below.'); });
   });
 }
 function stopCamera(){
@@ -1393,7 +1450,7 @@ function addScannedManually(){
   openCreateFood(scanContext==='log');
   currentBarcode=code; currentSource='manual'; currentFdcId='';  // user-entered data, even though a barcode is attached
 }
-function findFoodByBarcode(code){return Object.values(DB.foods).find(f=>f.barcode&&f.barcode===code);}
+function findFoodByBarcode(code){return Object.values(DB.foods).find(f=>f.barcode&&f.barcode===code&&!f.deleted);}
 
 /* Map an Open Food Facts product to our food form (per-serving when known, else per 100 g) */
 function prefillFromOFF(p,code){
@@ -1553,6 +1610,8 @@ function usdaPer100(fn){
     monoFat:usdaNum(fn,'645'),
     transFat:usdaNum(fn,'605'),
     fiber:usdaNum(fn,'291'),
+    fiberSoluble:usdaNum(fn,'295'),
+    fiberInsoluble:usdaNum(fn,'297'),
     sugars:usdaNum(fn,'269'),
     addedSugars:usdaNum(fn,'539'),
     cholesterol:usdaNum(fn,'601'),  // already mg
@@ -1813,6 +1872,7 @@ function prefillFromUSDA(food){
     if(!['calories','protein','totalCarbs','totalFat'].includes(k))hadExtra=true;
   });
   if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
+  setFiberBreakdown(document.getElementById('n_fiberSoluble').value!==''||document.getElementById('n_fiberInsoluble').value!=='');
   if(usdaContext==='log')pendingLogAfterSave=true;
   toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
 }
@@ -1838,6 +1898,7 @@ buildUnitSelect();
 renderToday();
 renderUsdaKeyUI();
 renderSyncUI();
+(function(){const bn=document.getElementById('buildNote');if(bn)bn.textContent='Plate · build '+APP_BUILD;})();
 autoConnectDrive();
 </script>
 </body>

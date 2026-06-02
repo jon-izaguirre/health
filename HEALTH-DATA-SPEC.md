@@ -9,7 +9,7 @@ It is the single source of truth. Any new app should read this first and conform
 ## 1. Core principles
 
 1. **The date is the glue.** Every app keys its data by local calendar day in `YYYY-MM-DD` form. This is what lets a dashboard line up "on this day: ate X, lifted Y, weighed Z, slept W."
-2. **Local first, Drive as the hub.** Each app stores its own data on-device. Backups/interchange happen as JSON files in a shared Google Drive folder. No live server is ever required.
+2. **Offline-first; Drive is the source of truth.** Each app keeps an instant on-device cache (`localStorage`) and syncs it to a shared Google Drive folder, which holds the canonical copy so a new or lost phone restores by signing in. Sync is automatic: pull-on-open (newer wins) and a debounced push-on-change. No live server is ever required, and the app works fully offline.
 3. **One common envelope.** Every export uses the same outer structure (Section 2), so any reader recognizes any file.
 4. **Two layers per file:** a small shared **`daily`** summary (the part the dashboard reads) and a private **`raw`** block (each app's full detail, for its own restore and drill-down).
 5. **Forward-compatible.** Readers ignore fields they don't understand. Adding new metrics never breaks old files.
@@ -33,6 +33,7 @@ Every app exports a single JSON file shaped like this:
     "2026-05-26": { "calories": 1750, "protein_g": 130, "carbs_g": 140, "fat_g": 55 }
   },
   "raw": {
+    "updatedAt": "2026-05-26T14:30:00.000Z",
     "...": "app-specific full state — foods, meals, logs, etc."
   }
 }
@@ -46,6 +47,7 @@ Field meanings:
 - `units` — `"us"` (lbs / inches / °F) for this project.
 - `daily` — the shared layer: a map of date → metrics. Only include dates that have data. Episodic data (a lab panel, a DEXA scan) simply appears on the few dates it happened.
 - `raw` — the app's own complete data, in whatever structure that app needs. The dashboard does not read this; only the owning app does (for restore and detailed views).
+- `raw.updatedAt` — ISO timestamp of the last local change. **This is the sync reconcile key:** on open, an app compares its local `updatedAt` to the Drive file's `raw.updatedAt` and the newer one wins (last-write-wins). Fine for a single user; clock skew across simultaneous devices is the known edge case.
 
 ---
 
@@ -63,6 +65,8 @@ Every key inside a `daily` date object must come from this registry, so no two a
 | `carbs_g` | g | M |
 | `fat_g` | g | M |
 | `fiber_g` | g | M |
+| `fiber_soluble_g` | g | M |
+| `fiber_insoluble_g` | g | M |
 | `sugar_g` | g | M |
 | `sodium_mg` | mg | M |
 | `water_oz` | fl oz | M |
@@ -168,35 +172,34 @@ Which specific supplements, doses, and times live in that app's `raw` block.
 
 ## 5. Google Drive layout
 
+The shared `DRIVE` module (see BUILD-CONVENTIONS §5) creates and owns a single **`Health`** folder and writes one canonical file per app directly inside it:
+
 ```
 Health/
-  plate/
-    plate-latest.json          ← most recent export, always this name (easy to find / overwrite)
-    snapshots/
-      plate-2026-05-25.json    ← dated copies for history & safety
-  body/
-    body-latest.json
-  workout/
-  sleep/
-  vitals/
-  labs/
-  supplements/
-  dashboard/                   ← future read-only app that reads every *-latest.json
+  plate-latest.json       ← Plate's canonical data, overwritten on change
+  workout-latest.json
+  body-latest.json
+  sleep-latest.json
+  vitals-latest.json
+  labs-latest.json
+  supplements-latest.json
 ```
 
-- Each app keeps one `…-latest.json` that gets overwritten, plus dated snapshots.
-- The future dashboard reads the `*-latest.json` files and merges their `daily` layers by date.
+- Each app keeps exactly one `<app>-latest.json`, found by name and overwritten in place (multipart create the first time, `PATCH` media thereafter).
+- The `drive.file` scope means an app only sees files **it** created, so the app creates the `Health` folder itself; a manually-made folder of the same name wouldn't be visible to it.
+- Flat layout (no per-app subfolders, no dated snapshots) for v1 — simple and enough for restore. The manual Export feature still produces dated `<app>-backup-YYYY-MM-DD.json` files as a separate offline safety net.
+- The future dashboard reads every `*-latest.json` and merges their `daily` layers by date.
 
 ---
 
 ## 6. How a new app conforms (checklist)
 
-1. Store data on-device; key anything time-based by `YYYY-MM-DD`.
+1. Keep an on-device cache; key anything time-based by `YYYY-MM-DD`. Stamp `raw.updatedAt` on every change.
 2. On export, wrap everything in the Section 2 envelope with your `health_app` id and `version: 1`.
 3. Build a `daily` summary using only registry keys (Section 3). Add new keys to the registry if needed.
 4. Put full detail in `raw`.
 5. On import, accept both this enveloped format (read `raw`) and any older plain backup, so nothing breaks.
-6. Save `…-latest.json` to your app's Drive folder (manually for now; auto-on-open later).
+6. Sync automatically via the shared `DRIVE` module (BUILD-CONVENTIONS §5): reconcile-on-open and debounced push to `Health/<app>-latest.json`, last-write-wins by `raw.updatedAt`. Keep manual Export/Import as the offline backup.
 
 ---
 
