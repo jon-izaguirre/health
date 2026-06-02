@@ -34,6 +34,7 @@ npm test         # runs all suites; exits non-zero if anything fails
 - `ui.test.js` — meal-ingredient picker no longer stacks over the meal sheet (closes/reopens correctly, hides log-only buttons); Foods/Meals filter tabs; and a logged meal's ingredient foods shown in the Edit-Entry sheet.
 - `decode.test.js` — barcode photo-decode safety: scanner-library load timeouts and the overall decode deadline (spinner can't hang), guard release after timeout, and stale-callback rejection.
 - `delivery2a.test.js` — soft-delete (hide-not-erase; history intact; hidden from list/picker/barcode-match), fiber breakdown (soluble/insoluble scaling, daily roll-up, blank-total auto-sum, USDA 295/297, edit reveals breakdown), version/build label, and Settings section order.
+- `serving.test.js` — serving-size auto-scale for database-pulled foods (USDA/barcode rescale per-serving nutrition when the serving size changes; manual entry and editing do not; multi-change and blank/invalid serving are safe).
 
 ## .gitignore suggestion
 ```

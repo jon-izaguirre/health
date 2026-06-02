@@ -102,7 +102,7 @@ const today = boot().todayStr();
 {
   const w = boot();
   const t = w.document.getElementById('buildNote').textContent;
-  ok(/build/i.test(t) && t.includes('2026-06-02.1'), 'Settings shows a build label with the version string');
+  ok(/build/i.test(t) && t.includes('2026-06-02.2'), 'Settings shows a build label with the version string');
 }
 
 // ===== SETTINGS ORDER: Cloud Sync -> Daily Goals -> Food Search =====
