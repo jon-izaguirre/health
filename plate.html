@@ -217,6 +217,10 @@
   .meal-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 24px;}
   .meal-chip{padding:9px 16px;border-radius:30px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:600;color:var(--ink-soft);}
   .meal-chip.sel{background:var(--green);color:#fff;}
+  .seg{display:flex;gap:6px;background:var(--line-soft);border-radius:30px;padding:4px;margin-bottom:14px;}
+  .seg button{flex:1;padding:9px 0;border-radius:24px;background:transparent;font-size:13.5px;font-weight:600;color:var(--ink-soft);font-family:'Hanken Grotesk',sans-serif;}
+  .seg button.sel{background:var(--card);color:var(--green);box-shadow:var(--shadow);}
+  .pf-ings{margin-top:8px;font-size:12.5px;color:var(--ink-soft);line-height:1.7;}
   .nutprev{display:flex;justify-content:space-around;text-align:center;background:var(--card);border-radius:16px;padding:16px 8px;box-shadow:var(--shadow);margin-bottom:20px;}
   .nutprev div .npv{font-size:18px;font-weight:700;font-family:'Hanken Grotesk',sans-serif;letter-spacing:-.02em;}
   .nutprev div .npl{font-size:11px;color:var(--ink-faint);font-weight:600;margin-top:2px;}
@@ -330,6 +334,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
       <input type="text" id="foodSearch" placeholder="Search your foods & meals" oninput="renderFoods()">
     </div>
+    <div class="seg" id="foodsSeg">
+      <button id="segFoods" class="sel" onclick="setFoodsTab('foods')">Foods</button>
+      <button id="segMeals" onclick="setFoodsTab('meals')">Meals</button>
+    </div>
     <div id="foodsList"></div>
   </section>
 
@@ -412,10 +420,10 @@
 </nav>
 
 <!-- ===== PICKER SHEET (choose food to log) ===== -->
-<div class="scrim" id="pickerScrim" onclick="closeSheet('picker')"></div>
+<div class="scrim" id="pickerScrim" onclick="cancelPicker()"></div>
 <div class="sheet" id="pickerSheet">
   <div class="sheet-head"><div class="grab"></div>
-    <button class="x" onclick="closeSheet('picker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="x" onclick="cancelPicker()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     <h3 id="pickerTitle">Add to Breakfast</h3>
     <span style="width:34px"></span>
   </div>
@@ -424,8 +432,8 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
       <input type="text" id="pickSearch" placeholder="Search foods & meals" oninput="renderPicker()">
     </div>
-    <button class="btn btn-scan" onclick="openScan('log')" style="margin-bottom:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode</button>
-    <button class="btn btn-soft" onclick="openCreateFood(true)" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
+    <button class="btn btn-scan" id="pickScanBtn" onclick="openScan('log')" style="margin-bottom:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode</button>
+    <button class="btn btn-soft" id="pickCreateBtn" onclick="openCreateFood(true)" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
     <div id="pickerList"></div>
   </div>
 </div>
@@ -462,6 +470,7 @@
     <div class="portion-food">
       <div class="pf-name" id="pName"></div>
       <div class="pf-sub" id="pServingDesc"></div>
+      <div class="pf-ings" id="pIngredients"></div>
     </div>
     <div class="qty-wrap">
       <button class="qty-btn" onclick="bumpQty(-1)">−</button>
@@ -736,8 +745,10 @@ function removeEntry(m,i){DB.log[selDate][m].splice(i,1);save();renderToday();to
 
 /* ============ PICKER ============ */
 let pickerMeal='breakfast',pickerMode='log';
-function openPicker(m){pickerMeal=m;pickerMode='log';document.getElementById('pickerTitle').textContent='Add to '+MEAL_LABEL[m];document.getElementById('pickSearch').value='';renderPicker();openSheet('picker');}
-function openPickerForMeal(){pickerMode='meal';document.getElementById('pickerTitle').textContent='Add ingredient';document.getElementById('pickSearch').value='';renderPicker();openSheet('picker');}
+function openPicker(m){pickerMeal=m;pickerMode='log';document.getElementById('pickerTitle').textContent='Add to '+MEAL_LABEL[m];document.getElementById('pickSearch').value='';setPickerExtras(true);renderPicker();openSheet('picker');}
+function openPickerForMeal(){pickerMode='meal';closeSheet('meal');document.getElementById('pickerTitle').textContent='Add ingredient';document.getElementById('pickSearch').value='';setPickerExtras(false);renderPicker();openSheet('picker');}
+function setPickerExtras(show){const s=document.getElementById('pickScanBtn'),c=document.getElementById('pickCreateBtn');if(s)s.style.display=show?'':'none';if(c)c.style.display=show?'':'none';}
+function cancelPicker(){closeSheet('picker');if(pickerMode==='meal')openSheet('meal');}
 function renderPicker(){
   const q=document.getElementById('pickSearch').value.toLowerCase().trim();
   const meals=pickerMode==='log'?Object.values(DB.meals):[];
@@ -758,7 +769,7 @@ function renderPicker(){
   }).join('')+'</div>'+extra;
 }
 function pickItem(type,id){
-  if(pickerMode==='meal'){addMealComp(id);closeSheet('picker');return;}
+  if(pickerMode==='meal'){closeSheet('picker');addMealComp(id);return;}
   closeSheet('picker');openPortion(type,id);
 }
 
@@ -817,8 +828,11 @@ function openPortion(type,id,opts){
   renderPortionUnits();
   if(type==='meal'){
     document.getElementById('pServingDesc').textContent=(obj.comps||[]).length+' ingredients';
+    const names=(obj.comps||[]).map(c=>{const f=DB.foods[c.foodId];return f?f.name:null;}).filter(Boolean);
+    document.getElementById('pIngredients').innerHTML=names.map(nm=>`<div>${esc(nm)}</div>`).join('');
   }else{
     document.getElementById('pServingDesc').textContent=(obj.brand?obj.brand+' · ':'')+'1 serving = '+fmtQty(base)+' '+unit;
+    document.getElementById('pIngredients').innerHTML='';
   }
   document.getElementById('pMealSelect').innerHTML=MEALS.map(m=>`<button class="meal-chip${m===pickerMeal?' sel':''}" data-m="${m}" onclick="pickerMeal='${m}';renderMealChips();">${MEAL_LABEL[m]}</button>`).join('');
   renderPortionPreview();
@@ -899,22 +913,28 @@ function deleteEditingEntry(){
 }
 
 /* ============ FOODS LIBRARY ============ */
+let foodsTab='foods';
+function setFoodsTab(t){foodsTab=t;const a=document.getElementById('segFoods'),b=document.getElementById('segMeals');if(a)a.classList.toggle('sel',t==='foods');if(b)b.classList.toggle('sel',t==='meals');renderFoods();}
 function renderFoods(){
   const q=(document.getElementById('foodSearch').value||'').toLowerCase().trim();
-  let meals=Object.values(DB.meals).map(x=>({...x,_type:'meal'}));
-  let foods=Object.values(DB.foods).map(x=>({...x,_type:'food'}));
-  let items=[...meals,...foods];
+  const meals=foodsTab==='meals';
+  let items=meals
+    ?Object.values(DB.meals).map(x=>({...x,_type:'meal'}))
+    :Object.values(DB.foods).map(x=>({...x,_type:'food'}));
   if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
   items.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById('foodsList');
-  const extra=usdaSearchBtn('library');
-  if(!items.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg><p>${q?'No matches.':'Your library is empty.<br>Create a food or meal to get started.'}</p></div>`+extra;return;}
+  const extra=meals?'':usdaSearchBtn('library');
+  if(!items.length){
+    const msg=q?'No matches.':(meals?'No meals yet.<br>Tap “New Meal” to combine foods you log together.':'No foods yet.<br>Tap “New Food”, scan a barcode, or search the database.');
+    el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg><p>${msg}</p></div>`+extra;return;
+  }
   el.innerHTML='<div class="listcard">'+items.map(x=>{
     const n=x._type==='meal'?mealNut(x,1):foodNut(x,1);
     const st=x._type==='food'?sourceTag(foodSource(x)):'';
     const sub=(x._type==='meal'?`${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`)+(st?` · ${esc(st)}`:'');
     return `<button class="row" onclick="${x._type==='meal'?`editMeal('${x.id}')`:`editFood('${x.id}')`}">
-      <div class="row-main"><div class="row-t">${esc(x.name)} ${x._type==='meal'?'<span class="tagm">Meal</span>':''}</div><div class="row-s">${sub}</div></div>
+      <div class="row-main"><div class="row-t">${esc(x.name)}</div><div class="row-s">${sub}</div></div>
       <div class="row-r">${r0(n.calories)} <span style="color:var(--ink-faint);font-weight:500;font-size:12px">cal</span></div>
       <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>`;
