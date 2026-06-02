@@ -123,6 +123,10 @@
   .entry-info{flex:1;min-width:0;}
   .entry-name{font-size:14.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .entry-meta{font-size:12px;color:var(--ink-faint);margin-top:1px;}
+  .entry-brand{font-size:12px;font-weight:400;color:var(--ink-faint);}
+  .usda-btn{width:100%;margin-top:12px;}
+  .usda-btn svg{width:17px;height:17px;}
+  .pf-source{font-size:11.5px;color:var(--ink-faint);text-align:right;margin-top:14px;}
   .entry-kcal{font-size:14px;font-weight:600;color:var(--ink-soft);white-space:nowrap;}
   .entry-x{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:var(--ink-faint);flex:none;}
   .entry-x:active{background:var(--line);}
@@ -207,6 +211,8 @@
   .qty-input{width:130px;text-align:center;font-size:34px;font-weight:700;border:none;outline:none;background:none;color:var(--ink);font-family:'Hanken Grotesk',sans-serif;letter-spacing:-.02em;border-bottom:2px solid var(--line);padding-bottom:4px;}
   .qty-input:focus{border-bottom-color:var(--green-bright);}
   .qty-unit{font-size:16px;font-weight:600;color:var(--ink-soft);min-width:30px;text-align:left;}
+  .qty-unit-sel{font-family:'Hanken Grotesk',sans-serif;border:none;outline:none;background-color:transparent;-webkit-appearance:none;appearance:none;padding:2px 15px 2px 2px;background-repeat:no-repeat;background-position:right center;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236E6B61' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+  .qty-unit-sel:disabled{opacity:1;background-image:none;padding-right:2px;}
   .serving-pick{text-align:center;font-size:13.5px;color:var(--ink-soft);margin-bottom:22px;}
   .meal-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 24px;}
   .meal-chip{padding:9px 16px;border-radius:30px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:600;color:var(--ink-soft);}
@@ -351,6 +357,9 @@
     <div class="section-label" style="margin-top:0;">Cloud Sync</div>
     <div class="card" id="syncBox" style="padding:18px;"></div>
 
+    <div class="section-label">Food Search</div>
+    <div class="card" id="usdaBox" style="padding:18px;"></div>
+
     <div class="section-label">Daily Goals</div>
     <div class="listcard">
       <div class="goal-row">
@@ -422,6 +431,26 @@
 </div>
 
 <!-- ===== PORTION SHEET ===== -->
+<!-- ===== USDA FOOD DATABASE SEARCH SHEET ===== -->
+<div class="scrim" id="usdaScrim" onclick="closeSheet('usda')"></div>
+<div class="sheet" id="usdaSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeSheet('usda')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3>Food database</h3>
+    <span style="width:34px"></span>
+  </div>
+  <div class="sheet-body">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input type="text" id="usdaSearch" placeholder="Search foods (e.g. banana)" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')runUsdaQuery()">
+    </div>
+    <button class="btn btn-soft" onclick="runUsdaQuery()" style="margin-bottom:12px;">Search</button>
+    <div id="usdaStatus" style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:8px;"></div>
+    <div id="usdaList"></div>
+    <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:14px;">Results come from USDA FoodData Central (public domain). Always double-check the values before saving — you can edit anything.</div>
+  </div>
+</div>
+
 <div class="scrim" id="portionScrim" onclick="closeSheet('portion')"></div>
 <div class="sheet" id="portionSheet">
   <div class="sheet-head"><div class="grab"></div>
@@ -437,12 +466,13 @@
     <div class="qty-wrap">
       <button class="qty-btn" onclick="bumpQty(-1)">−</button>
       <input class="qty-input" id="pQty" type="text" inputmode="decimal" value="1" oninput="renderPortionPreview()">
-      <span class="qty-unit" id="pQtyUnit"></span>
+      <select class="qty-unit qty-unit-sel" id="pQtyUnit" onchange="onPortionUnitChange()"></select>
       <button class="qty-btn" onclick="bumpQty(1)">+</button>
     </div>
     <div class="serving-pick" id="pServingUnit"></div>
     <div class="meal-select" id="pMealSelect"></div>
     <div class="nutprev" id="pNutPrev"></div>
+    <div class="pf-source" id="pSource"></div>
     <button class="btn btn-danger" id="portionDelete" onclick="deleteEditingEntry()" style="display:none;">Remove from diary</button>
   </div>
 </div>
@@ -665,8 +695,9 @@ function renderDiary(){
     let kcal=0;entries.forEach(e=>kcal+=entryNut(e).calories);
     const rows=entries.map((e,i)=>{
       const n=entryNut(e);
+      const br=entryBrand(e);
       return `<div class="entry" onclick="editEntry('${m}',${i})">
-        <div class="entry-info"><div class="entry-name">${esc(refName(e))}</div>
+        <div class="entry-info"><div class="entry-name">${esc(refName(e))}${br?` <span class="entry-brand">${esc(br)}</span>`:''}</div>
         <div class="entry-meta">${esc(entryAmountText(e))}</div></div>
         <div class="entry-kcal">${r0(n.calories)}</div>
         <button class="entry-x" onclick="event.stopPropagation();removeEntry('${m}',${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
@@ -684,11 +715,11 @@ function renderDiary(){
   }).join('');
 }
 function entryAmountText(e){
-  if(e.type==='meal'){const q=e.qty;return fmtQty(q)+' serving'+(q!==1?'s':'');}
+  if(e.type==='meal'){const q=e.qty;return fmtQty(q)+' '+pluralizeUnit('serving',q);}
   const f=DB.foods[e.refId];
   const amt=(e.amt!=null)?e.amt:(e.qty*((f&&f.servQty)||1));
   const unit=e.unit||(f&&f.servUnit)||'serving';
-  return fmtAmt(amt)+' '+unit;
+  return fmtAmt(amt)+' '+pluralizeUnit(unit,amt);
 }
 function fmtQty(q){return Number.isInteger(q)?q:r1(q);}
 function fmtAmt(v){return Number.isInteger(v)?v:Math.round(v*100)/100;}
@@ -715,14 +746,16 @@ function renderPicker(){
   if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
   items.sort((a,b)=>(b.used||0)-(a.used||0)||a.name.localeCompare(b.name));
   const el=document.getElementById('pickerList');
-  if(!items.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><p>${Object.keys(DB.foods).length?'No matches.':'No foods yet.<br>Create your first food above.'}</p></div>`;return;}
+  const extra=(pickerMode==='log')?usdaSearchBtn('log'):'';
+  if(!items.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><p>${Object.keys(DB.foods).length?'No matches.':'No foods yet.<br>Create your first food above.'}</p></div>`+extra;return;}
   el.innerHTML='<div class="listcard">'+items.map(x=>{
     const n=x._type==='meal'?mealNut(x,1):foodNut(x,1);
-    const sub=x._type==='meal'?`Meal · ${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`;
+    const st=x._type==='food'?sourceTag(foodSource(x)):'';
+    const sub=(x._type==='meal'?`Meal · ${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`)+(st?` · ${esc(st)}`:'');
     return `<button class="row" onclick="pickItem('${x._type}','${x.id}')">
       <div class="row-main"><div class="row-t">${esc(x.name)} ${x._type==='meal'?'<span class="tagm">Meal</span>':''}</div><div class="row-s">${sub}</div></div>
       <div class="row-r">${r0(n.calories)}</div></button>`;
-  }).join('')+'</div>';
+  }).join('')+'</div>'+extra;
 }
 function pickItem(type,id){
   if(pickerMode==='meal'){addMealComp(id);closeSheet('picker');return;}
@@ -730,7 +763,30 @@ function pickItem(type,id){
 }
 
 /* ============ PORTION ============ */
-let portionRef=null, editingEntry=null;
+let portionRef=null, editingEntry=null, portionSelUnit='serving';
+function renderPortionUnits(){
+  const sel=document.getElementById('pQtyUnit');if(!sel)return;
+  if(!portionRef||portionRef.type==='meal'){
+    const amt=parseFloat(document.getElementById('pQty').value)||0;
+    sel.innerHTML=`<option value="serving">${amt===1?'serving':'servings'}</option>`;
+    sel.value='serving';sel.disabled=true;portionSelUnit='serving';return;
+  }
+  sel.disabled=false;
+  const f=DB.foods[portionRef.id];
+  const units=unitsForFood(f);
+  if(!units.includes(portionSelUnit))portionSelUnit=units[0];
+  sel.innerHTML=units.map(u=>`<option value="${esc(u)}">${esc(u)}</option>`).join('');
+  sel.value=portionSelUnit;
+}
+function onPortionUnitChange(){
+  const sel=document.getElementById('pQtyUnit');if(!portionRef||portionRef.type==='meal')return;
+  const f=DB.foods[portionRef.id];
+  const amount=parseFloat(document.getElementById('pQty').value)||0;
+  const mult=foodMultForUnit(f,amount,portionSelUnit);  // hold physical quantity constant
+  portionSelUnit=normalizeUnit(sel.value);
+  document.getElementById('pQty').value=fmtAmt(multToUnitAmount(f,mult,portionSelUnit));
+  renderPortionPreview();
+}
 function portionBase(){ // 1 serving expressed in the food's unit (meals: 1 serving)
   if(portionRef.type==='meal')return 1;
   const f=DB.foods[portionRef.id];return (f&&f.servQty)||1;
@@ -756,8 +812,9 @@ function openPortion(type,id,opts){
   document.getElementById('pName').textContent=obj.name;
   const unit=portionUnit(), base=portionBase();
   const defAmount=(opts.amount!=null)?opts.amount:base;
+  portionSelUnit=(type==='meal')?'serving':normalizeUnit(opts.unit||(obj&&obj.servUnit)||'serving');
   document.getElementById('pQty').value=fmtAmt(defAmount);
-  document.getElementById('pQtyUnit').textContent=(type==='meal')?(defAmount===1?'serving':'servings'):unit;
+  renderPortionUnits();
   if(type==='meal'){
     document.getElementById('pServingDesc').textContent=(obj.comps||[]).length+' ingredients';
   }else{
@@ -765,14 +822,17 @@ function openPortion(type,id,opts){
   }
   document.getElementById('pMealSelect').innerHTML=MEALS.map(m=>`<button class="meal-chip${m===pickerMeal?' sel':''}" data-m="${m}" onclick="pickerMeal='${m}';renderMealChips();">${MEAL_LABEL[m]}</button>`).join('');
   renderPortionPreview();
+  const srcEl=document.getElementById('pSource');
+  if(srcEl)srcEl.textContent=(type==='meal')?'Your meal':('Source: '+sourceLabel(foodSource(obj)));
   openSheet('portion');
   document.getElementById('portionSave').onclick=commitPortion;
 }
 function renderMealChips(){document.querySelectorAll('#pMealSelect .meal-chip').forEach(c=>c.classList.toggle('sel',c.dataset.m===pickerMeal));}
 function portionStep(){
   if(portionRef.type==='meal')return 1;
-  const f=DB.foods[portionRef.id],u=(f.servUnit||'').toLowerCase();
-  if(u==='g'||u==='ml'||u==='mg')return f.servQty>=200?25:(f.servQty>=40?10:5);
+  const u=(portionSelUnit||'').toLowerCase();
+  if(u==='serving')return 1;
+  if(u==='g'||u==='ml'||u==='mg'){const f=DB.foods[portionRef.id];return f.servQty>=200?25:(f.servQty>=40?10:5);}
   return 1;
 }
 function bumpQty(dir){
@@ -785,11 +845,11 @@ function bumpQty(dir){
 function renderPortionPreview(){
   if(!portionRef)return;
   const amount=parseFloat(document.getElementById('pQty').value)||0;
-  const mult=amountToMult(amount);
+  const mult=portionRef.type==='meal'?amount:foodMultForUnit(DB.foods[portionRef.id],amount,portionSelUnit);
   const obj=portionRef.type==='meal'?DB.meals[portionRef.id]:DB.foods[portionRef.id];
   const n=portionRef.type==='meal'?mealNut(obj,mult):foodNut(obj,mult);
   if(portionRef.type==='meal'){
-    document.getElementById('pQtyUnit').textContent=(amount===1?'serving':'servings');
+    const sel=document.getElementById('pQtyUnit');if(sel)sel.innerHTML=`<option value="serving">${amount===1?'serving':'servings'}</option>`;
     document.getElementById('pServingUnit').textContent='';
   }else{
     document.getElementById('pServingUnit').textContent='≈ '+fmtAmt(mult)+' serving'+(mult===1?'':'s');
@@ -803,9 +863,9 @@ function renderPortionPreview(){
 function commitPortion(){
   const amount=parseFloat(document.getElementById('pQty').value)||0;
   if(amount<=0){toast('Enter an amount');return;}
-  const mult=amountToMult(amount);
-  const unit=portionUnit();
-  const entry={type:portionRef.type,refId:portionRef.id,qty:mult,amt:amount,unit:(portionRef.type==='meal'?'serving':unit)};
+  const mult=portionRef.type==='meal'?amount:foodMultForUnit(DB.foods[portionRef.id],amount,portionSelUnit);
+  const unit=portionRef.type==='meal'?'serving':portionSelUnit;
+  const entry={type:portionRef.type,refId:portionRef.id,qty:mult,amt:amount,unit:unit};
   if(editingEntry){
     // remove from its old meal, then add to the (possibly changed) selected meal
     const oldArr=(DB.log[selDate]&&DB.log[selDate][editingEntry.meal])||[];
@@ -829,7 +889,7 @@ function editEntry(meal,index){
   const obj=e.type==='meal'?DB.meals[e.refId]:DB.foods[e.refId];
   if(!obj){toast('This item was deleted from your library');return;}
   const amt=(e.amt!=null)?e.amt:(e.type==='meal'?e.qty:e.qty*((obj.servQty)||1));
-  openPortion(e.type,e.refId,{amount:amt,meal,index,editing:true});
+  openPortion(e.type,e.refId,{amount:amt,unit:e.unit,meal,index,editing:true});
 }
 function deleteEditingEntry(){
   if(!editingEntry)return;
@@ -847,23 +907,25 @@ function renderFoods(){
   if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
   items.sort((a,b)=>a.name.localeCompare(b.name));
   const el=document.getElementById('foodsList');
-  if(!items.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg><p>${q?'No matches.':'Your library is empty.<br>Create a food or meal to get started.'}</p></div>`;return;}
+  const extra=usdaSearchBtn('library');
+  if(!items.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg><p>${q?'No matches.':'Your library is empty.<br>Create a food or meal to get started.'}</p></div>`+extra;return;}
   el.innerHTML='<div class="listcard">'+items.map(x=>{
     const n=x._type==='meal'?mealNut(x,1):foodNut(x,1);
-    const sub=x._type==='meal'?`${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`;
+    const st=x._type==='food'?sourceTag(foodSource(x)):'';
+    const sub=(x._type==='meal'?`${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`)+(st?` · ${esc(st)}`:'');
     return `<button class="row" onclick="${x._type==='meal'?`editMeal('${x.id}')`:`editFood('${x.id}')`}">
       <div class="row-main"><div class="row-t">${esc(x.name)} ${x._type==='meal'?'<span class="tagm">Meal</span>':''}</div><div class="row-s">${sub}</div></div>
       <div class="row-r">${r0(n.calories)} <span style="color:var(--ink-faint);font-weight:500;font-size:12px">cal</span></div>
       <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>`;
-  }).join('')+'</div>';
+  }).join('')+'</div>'+extra;
 }
 
 /* ============ CREATE / EDIT FOOD ============ */
 let editingFood=null;
 function openCreateFood(forLog){
   closeSheet('picker');
-  editingFood=null;currentBarcode='';pendingLogAfterSave=(forLog===true);
+  editingFood=null;currentBarcode='';currentSource='';currentFdcId='';pendingLogAfterSave=(forLog===true);
   document.getElementById('foodSheetTitle').textContent='Create Food';
   document.getElementById('foodDeleteBtn').style.display='none';
   document.getElementById('fName').value='';document.getElementById('fBrand').value='';
@@ -874,7 +936,7 @@ function openCreateFood(forLog){
   openSheet('food');
 }
 function editFood(id){
-  const f=DB.foods[id];if(!f)return;editingFood=id;currentBarcode=f.barcode||'';
+  const f=DB.foods[id];if(!f)return;editingFood=id;currentBarcode=f.barcode||'';currentSource=f.source||'';currentFdcId=f.fdcId||'';
   document.getElementById('foodSheetTitle').textContent='Edit Food';
   document.getElementById('foodDeleteBtn').style.display='block';
   document.getElementById('fName').value=f.name||'';
@@ -930,6 +992,8 @@ function saveFood(){
     servQty:Number(document.getElementById('fServQty').value)||1,
     servUnit:getUnitValue(),
     barcode:currentBarcode||'',
+    source:currentSource||(currentBarcode?'off':'manual'),
+    fdcId:currentFdcId||'',
     nut, used:editingFood?DB.foods[editingFood].used:0
   };
   const newId=f.id, wasNew=!editingFood;
@@ -1114,8 +1178,8 @@ let toastTimer;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1900);}
 
 /* ============ BARCODE SCANNER + OPEN FOOD FACTS ============ */
-let currentBarcode='', pendingLogAfterSave=false, scanContext='log';
-let qrScanner=null, scanHandling=false;
+let currentBarcode='', pendingLogAfterSave=false, scanContext='log', currentSource='', currentFdcId='';
+let qrScanner=null, scanHandling=false, lastScanCode='';
 const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const QUAGGA_SRC='https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js';
 
@@ -1275,22 +1339,39 @@ function lookupBarcode(code){
     else{toast('You already have this food');setTimeout(()=>editFood(local.id),200);}
     return;
   }
-  // 2) look it up online
+  // 2) look it up online — with a hard timeout so a slow/hung request can't get stuck on "Looking up…"
   setScanStatus('<span class="spinner"></span> Looking up '+esc(code)+'…');
   const url='https://world.openfoodfacts.org/api/v0/product/'+encodeURIComponent(code)+'.json';
-  fetch(url).then(r=>r.json()).then(data=>{
+  const ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const timer=setTimeout(()=>{if(ctrl)try{ctrl.abort();}catch(e){}},9000);
+  fetch(url,ctrl?{signal:ctrl.signal}:{}).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();}).then(data=>{
+    clearTimeout(timer);
     if(data&&data.status===1&&data.product){
       prefillFromOFF(data.product,code);
     }else{
-      // not found — open a blank form with the barcode attached
-      closeScan();
-      openCreateFood(scanContext==='log');currentBarcode=code;
-      toast('Not in the database — enter it manually');
+      scanNotFound(code);   // explicit "not found", with a one-tap manual-add
     }
-  }).catch(()=>{
-    setScanStatus('Couldn\'t reach the database (you may be offline).<br>You can type the values in manually instead.');
+  }).catch(err=>{
+    clearTimeout(timer);
     scanHandling=false;
+    if(err&&err.name==='AbortError'){
+      setScanStatus('That lookup took too long — the database is slow or you’re offline.<br>Try again, or add it manually below.');
+    }else{
+      setScanStatus('Couldn’t reach the database (you may be offline).<br>Try again, or add it manually below.');
+    }
   });
+}
+function scanNotFound(code){
+  lastScanCode=code; scanHandling=false;
+  const el=document.getElementById('scanStatus'); if(!el)return;
+  el.innerHTML='<b>Not in the database.</b><br>You can add it yourself — the barcode is saved, so next time it’s instant.'
+    +'<button class="btn btn-soft" style="margin-top:12px;" onclick="addScannedManually()">Add it manually</button>';
+}
+function addScannedManually(){
+  const code=lastScanCode;
+  closeScan();
+  openCreateFood(scanContext==='log');
+  currentBarcode=code; currentSource='manual'; currentFdcId='';  // user-entered data, even though a barcode is attached
 }
 function findFoodByBarcode(code){return Object.values(DB.foods).find(f=>f.barcode&&f.barcode===code);}
 
@@ -1332,6 +1413,7 @@ function prefillFromOFF(p,code){
   closeScan();
   openCreateFood();
   currentBarcode=code;
+  currentSource='off';currentFdcId='';
   document.getElementById('fName').value=(p.product_name||p.generic_name||'').trim();
   document.getElementById('fBrand').value=((p.brands||'').split(',')[0]||'').trim();
   document.getElementById('fServQty').value=servQty;
@@ -1360,6 +1442,114 @@ function sodiumMg(nm){
   return null;
 }
 function round1(n){return Math.round(n*10)/10;}
+
+/* ============================================================
+   DELIVERY 1 HELPERS (pure, unit-tested)
+   ============================================================ */
+
+/* ---- Pluralize countable units (display only) ---- */
+const COUNTABLE_UNITS=['serving','bottle','slice','piece','scoop','can','packet','egg','clove'];
+function pluralizeUnit(unit,qty){
+  if(qty===1)return unit;
+  const u=String(unit||'').toLowerCase();
+  if(COUNTABLE_UNITS.includes(u))return unit+'s';   // serving->servings, bottle->bottles ...
+  return unit;                                       // measured units (g, mL, oz...) & unknowns stay singular
+}
+/* ---- Brand shown beside a logged entry ---- */
+function entryBrand(e){
+  if(!e||e.type==='meal')return'';
+  const f=DB.foods[e.refId];
+  return (f&&f.brand)||'';
+}
+/* ---- Food provenance (source) ---- */
+function foodSource(f){return (f&&f.source)||(f&&f.barcode?'off':'manual');}
+function sourceLabel(src){return src==='usda'?'USDA FoodData Central':src==='off'?'Open Food Facts':'Added by you';}
+function sourceTag(src){return src==='usda'?'USDA':src==='off'?'Open Food Facts':'';}  // '' for manual = no row clutter
+
+/* ---- Honest unit conversion for the Edit Entry / Log sheet ----
+   Only convert within a single measurement family (no fake g<->mL).
+   "serving" is always available (1 serving = servQty native units). */
+const UNIT_FAMILIES={
+  mass:{g:1,kg:1000,oz:28.3495,lb:453.592},
+  volume:{mL:1,L:1000,'fl oz':29.5735,cup:236.588,tbsp:14.7868,tsp:4.92892}
+};
+function unitFamily(u){u=normalizeUnit(u);for(const fam in UNIT_FAMILIES){if(Object.prototype.hasOwnProperty.call(UNIT_FAMILIES[fam],u))return fam;}return null;}
+function unitsForFood(f){
+  const native=normalizeUnit((f&&f.servUnit)||'serving');
+  const fam=unitFamily(native);
+  if(fam)return ['serving',...Object.keys(UNIT_FAMILIES[fam])];
+  const list=['serving'];
+  if(native&&native!=='serving')list.push(native);
+  return list;
+}
+// amount expressed in `unit` -> quantity in the food's native servUnit
+function unitToNativeQty(f,amount,unit){
+  unit=normalizeUnit(unit);
+  const native=normalizeUnit((f&&f.servUnit)||'serving');
+  const sq=(f&&f.servQty)||1;
+  if(unit==='serving')return amount*sq;
+  const fam=unitFamily(native),fu=unitFamily(unit);
+  if(fam&&fu&&fam===fu)return (amount*UNIT_FAMILIES[fam][unit])/UNIT_FAMILIES[fam][native];
+  return amount; // same/unknown unit: treat as native units directly
+}
+// amount in `unit` -> serving multiplier (drives nutrition)
+function foodMultForUnit(f,amount,unit){
+  const sq=(f&&f.servQty)||1;
+  return sq>0?unitToNativeQty(f,amount,unit)/sq:0;
+}
+// inverse: serving multiplier -> amount expressed in `unit` (used when switching units)
+function multToUnitAmount(f,mult,unit){
+  unit=normalizeUnit(unit);
+  const sq=(f&&f.servQty)||1;
+  if(unit==='serving')return mult;
+  const native=normalizeUnit((f&&f.servUnit)||'serving');
+  const nativeQty=mult*sq;
+  const fam=unitFamily(native),fu=unitFamily(unit);
+  if(fam&&fu&&fam===fu)return (nativeQty*UNIT_FAMILIES[fam][native])/UNIT_FAMILIES[fam][unit];
+  return nativeQty;
+}
+
+/* ---- USDA FoodData Central food search (manual lookup, BYO key) ---- */
+const USDA_KEY_LS='plate.usda.key';
+function usdaKey(){try{return (localStorage.getItem(USDA_KEY_LS)||'').trim();}catch(e){return'';}}
+function setUsdaKey(v){try{(v&&v.trim())?localStorage.setItem(USDA_KEY_LS,v.trim()):localStorage.removeItem(USDA_KEY_LS);}catch(e){}}
+function usdaNum(arr,number){
+  const x=(arr||[]).find(n=>String(n.nutrientNumber)===number||String(n.number)===number);
+  if(!x)return null;
+  const v=parseFloat(x.value!=null?x.value:x.amount);
+  return isFinite(v)?v:null;
+}
+// Map a USDA food's foodNutrients (per 100 g/mL) to our per-serving-basis nut fields
+function usdaPer100(fn){
+  let kcal=usdaNum(fn,'208');
+  if(kcal===null){const kj=usdaNum(fn,'268');if(kj!==null)kcal=kj/4.184;}
+  return {
+    calories:kcal,
+    protein:usdaNum(fn,'203'),
+    totalCarbs:usdaNum(fn,'205'),
+    totalFat:usdaNum(fn,'204'),
+    satFat:usdaNum(fn,'606'),
+    polyFat:usdaNum(fn,'646'),
+    monoFat:usdaNum(fn,'645'),
+    transFat:usdaNum(fn,'605'),
+    fiber:usdaNum(fn,'291'),
+    sugars:usdaNum(fn,'269'),
+    addedSugars:usdaNum(fn,'539'),
+    cholesterol:usdaNum(fn,'601'),  // already mg
+    sodium:usdaNum(fn,'307'),       // already mg
+    potassium:usdaNum(fn,'306')     // already mg
+  };
+}
+function usdaServingBasis(food){
+  let servQty=100,servUnit='g',factor=1;
+  let u=String(food&&food.servingSizeUnit||'').toLowerCase();
+  if(u==='grm')u='g'; if(u==='mlt')u='ml';
+  const ss=parseFloat(food&&food.servingSize);
+  if(isFinite(ss)&&ss>0){servQty=round1(ss);factor=ss/100;servUnit=normalizeUnit(u)||'g';}
+  return {servQty,servUnit,factor};
+}
+function usdaName(food){return String(food&&food.description||'').trim();}
+function usdaBrand(food){return String(food&&(food.brandName||food.brandOwner)||'').trim();}
 
 /* ============================================================
    DRIVE SYNC  (reusable across Health apps — only APP_FILE/health_app differ)
@@ -1530,9 +1720,103 @@ function renderSyncUI(note){
     </div>`;
 }
 
+/* ============ USDA FOOD SEARCH (UI) ============ */
+let usdaContext='log', usdaResults=[];
+function usdaStatus(html){const el=document.getElementById('usdaStatus');if(el)el.innerHTML=html;}
+function usdaSearchBtn(ctx){
+  return `<button class="btn btn-ghost usda-btn" onclick="openUsdaSearch('${ctx}')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+    Search the food database</button>`;
+}
+function openUsdaSearch(ctx){
+  usdaContext=ctx;
+  const src=ctx==='log'?'pickSearch':'foodSearch';
+  const q=((document.getElementById(src)||{}).value||'').trim();
+  usdaResults=[];document.getElementById('usdaList').innerHTML='';usdaStatus('');
+  document.getElementById('usdaSearch').value=q;
+  openSheet('usda');
+  if(q)runUsdaQuery();else setTimeout(()=>document.getElementById('usdaSearch').focus(),100);
+}
+function runUsdaQuery(){
+  const q=(document.getElementById('usdaSearch').value||'').trim();
+  const list=document.getElementById('usdaList');
+  if(!q){usdaStatus('Type a food to search.');return;}
+  const key=usdaKey();
+  if(!key){usdaStatus('Add a free USDA API key in <b>Settings → Food Search</b> to search by name. It takes about a minute.');list.innerHTML='';return;}
+  usdaStatus('Searching…');list.innerHTML='';
+  const url='https://api.nal.usda.gov/fdc/v1/foods/search?api_key='+encodeURIComponent(key)
+    +'&query='+encodeURIComponent(q)+'&pageSize=25&dataType='+encodeURIComponent('Foundation,SR Legacy,Branded');
+  fetch(url).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();})
+    .then(data=>{usdaResults=(data&&data.foods)||[];renderUsdaResults();})
+    .catch(()=>{
+      if(navigator.onLine===false)usdaStatus('You appear to be offline. Search needs a connection — you can still add foods manually.');
+      else usdaStatus('Couldn’t search just now. Double-check your API key in Settings, or try again.');
+    });
+}
+function renderUsdaResults(){
+  const list=document.getElementById('usdaList');
+  if(!usdaResults.length){usdaStatus('No matches. Try a simpler word.');list.innerHTML='';return;}
+  usdaStatus(usdaResults.length+' result'+(usdaResults.length!==1?'s':'')+' — tap one to review &amp; save.');
+  list.innerHTML='<div class="listcard">'+usdaResults.map((f,i)=>{
+    const basis=usdaServingBasis(f);
+    const p=usdaPer100(f.foodNutrients||[]);
+    const cal=p.calories!=null?Math.round(p.calories*basis.factor):null;
+    const brand=usdaBrand(f);
+    const tag=f.dataType==='Branded'?'':'<span class="tagm">USDA</span>';
+    const dt=f.dataType?(' · '+esc(f.dataType)):'';
+    const sub=(brand?esc(brand)+' · ':'')+'per '+fmtQty(basis.servQty)+' '+esc(basis.servUnit)+dt;
+    return `<button class="row" onclick="pickUsda(${i})">
+      <div class="row-main"><div class="row-t">${esc(usdaName(f))} ${tag}</div><div class="row-s">${sub}</div></div>
+      <div class="row-r">${cal!=null?cal:'—'}</div></button>`;
+  }).join('')+'</div>';
+}
+function pickUsda(i){const f=usdaResults[i];if(f)prefillFromUSDA(f);}
+function prefillFromUSDA(food){
+  closeSheet('usda');
+  openCreateFood();
+  currentBarcode='';
+  currentSource='usda';currentFdcId=food.fdcId||'';
+  document.getElementById('fName').value=usdaName(food);
+  document.getElementById('fBrand').value=usdaBrand(food);
+  const basis=usdaServingBasis(food);
+  document.getElementById('fServQty').value=basis.servQty;
+  setUnitValue(basis.servUnit);
+  const per100=usdaPer100(food.foodNutrients||[]);
+  let any=false,hadExtra=false;
+  NUT_FIELDS.forEach(k=>{
+    const el=document.getElementById('n_'+k);if(!el)return;
+    let v=per100[k];
+    if(v===null||v===undefined){el.value='';return;}
+    v=v*basis.factor;
+    v=k==='calories'?Math.round(v):round1(v);
+    el.value=v;any=true;
+    if(!['calories','protein','totalCarbs','totalFat'].includes(k))hadExtra=true;
+  });
+  if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
+  if(usdaContext==='log')pendingLogAfterSave=true;
+  toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
+}
+function renderUsdaKeyUI(){
+  const el=document.getElementById('usdaBox');if(!el)return;
+  const has=!!usdaKey();
+  el.innerHTML=`
+    <div style="font-size:15px;font-weight:600;">USDA FoodData Central</div>
+    <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-top:6px;">${has?'Connected ✓ — you can search foods by name when logging.':'Add a free API key to search a large public food database (like “banana”) by name.'}</div>
+    <div class="field" style="margin-top:12px;"><label>API key</label>
+      <input type="text" id="usdaKeyInput" placeholder="Paste your key" value="${esc(usdaKey())}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="btn-pair" style="margin-top:10px;">
+      <button class="btn btn-soft" onclick="saveUsdaKeyFromInput()">Save key</button>
+      ${has?'<button class="btn btn-ghost" onclick="clearUsdaKey()">Remove</button>':''}
+    </div>
+    <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:12px;">Get a free key in about a minute at fdc.nal.usda.gov/api-key-signup. It stays on this device only and is never uploaded.</div>`;
+}
+function saveUsdaKeyFromInput(){setUsdaKey((document.getElementById('usdaKeyInput')||{}).value||'');renderUsdaKeyUI();toast(usdaKey()?'Food search ready':'Key cleared');}
+function clearUsdaKey(){setUsdaKey('');renderUsdaKeyUI();toast('Key removed');}
+
 /* ============ INIT ============ */
 buildUnitSelect();
 renderToday();
+renderUsdaKeyUI();
 renderSyncUI();
 autoConnectDrive();
 </script>
