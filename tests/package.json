@@ -1,0 +1,12 @@
+{
+  "name": "health-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless (jsdom) test suite for the Health apps. Loads ../<app>.html and asserts on real behavior. Not shipped to the app; lives in the repo so the suite is durable across builds.",
+  "scripts": {
+    "test": "node baseline.test.js && node helpers.test.js && node portion.test.js && node usda.test.js && node source.test.js && node scan.test.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
