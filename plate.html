@@ -501,7 +501,7 @@
     <div class="field"><label>Name</label><input type="text" id="fName" placeholder="e.g. Greek yogurt"></div>
     <div class="field"><label>Brand (optional)</label><input type="text" id="fBrand" placeholder="e.g. Fage"></div>
     <div class="field-row">
-      <div class="field"><label>Serving size</label><input type="number" inputmode="decimal" step="any" id="fServQty" placeholder="1" value="1"></div>
+      <div class="field"><label>Serving size</label><input type="number" inputmode="decimal" step="any" id="fServQty" placeholder="1" value="1" onchange="onServingSizeChange()"></div>
       <div class="field"><label>Unit</label>
         <select id="fServUnit" onchange="onUnitChange()"></select>
         <input type="text" id="fServUnitCustom" placeholder="Type a unit (e.g. scoop)" style="display:none;margin-top:8px;">
@@ -599,7 +599,7 @@
 const KEY='plate.data.v1';
 const MEALS=['breakfast','lunch','dinner','snacks'];
 const MEAL_LABEL={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snacks:'Snacks'};
-const APP_BUILD='2026-06-02.1';
+const APP_BUILD='2026-06-02.2';
 const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','fiberSoluble','fiberInsoluble','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD'];
 
 let DB=load();
@@ -955,14 +955,14 @@ function renderFoods(){
 }
 
 /* ============ CREATE / EDIT FOOD ============ */
-let editingFood=null;
+let editingFood=null, servScaleBasis=0;
 function openCreateFood(forLog){
   closeSheet('picker');
   editingFood=null;currentBarcode='';currentSource='';currentFdcId='';pendingLogAfterSave=(forLog===true);
   document.getElementById('foodSheetTitle').textContent='Create Food';
   document.getElementById('foodDeleteBtn').style.display='none';
   document.getElementById('fName').value='';document.getElementById('fBrand').value='';
-  document.getElementById('fServQty').value='1';setUnitValue('');
+  document.getElementById('fServQty').value='1';setUnitValue('');servScaleBasis=0;
   NUT_FIELDS.forEach(f=>{const el=document.getElementById('n_'+f);if(el)el.value='';});
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
@@ -977,6 +977,7 @@ function editFood(id){
   document.getElementById('fBrand').value=f.brand||'';
   document.getElementById('fServQty').value=f.servQty||1;
   setUnitValue(f.servUnit||'');
+  servScaleBasis=0;
   NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);if(el){const v=f.nut[k];el.value=(v===0||v===undefined||v===null)?'':v;}});
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
@@ -1031,6 +1032,25 @@ function onFiberSubInput(){
   if(tot.value===''&&sum>0)tot.value=round1(sum);       // total stays canonical; only auto-fill when blank
   const totv=parseFloat(tot.value);
   hint.textContent=(isFinite(totv)&&sum>totv+0.05)?'Soluble + insoluble add up to more than the total above.':'';
+}
+/* When a DATABASE-pulled food (USDA/barcode) has its serving size changed, rescale the
+   per-serving nutrition to match (the food's per-gram values are fixed). Manual entry and
+   editing an existing food do NOT auto-scale — there you set the serving and its values yourself.
+   Fires on change (blur), never on each keystroke, so typing "115" doesn't rescale at "1". */
+function onServingSizeChange(){
+  const el=document.getElementById('fServQty');
+  const nv=parseFloat(el.value);
+  if(servScaleBasis>0 && isFinite(nv) && nv>0 && Math.abs(nv-servScaleBasis)>1e-9){
+    const r=nv/servScaleBasis;
+    NUT_FIELDS.forEach(k=>{
+      const f=document.getElementById('n_'+k);
+      if(!f||f.value==='')return;
+      const v=parseFloat(f.value);
+      if(!isFinite(v))return;
+      f.value=(k==='calories')?String(Math.round(v*r)):String(round1(v*r));
+    });
+  }
+  if(isFinite(nv)&&nv>0&&servScaleBasis>0)servScaleBasis=nv;
 }
 function saveFood(){
   const name=document.getElementById('fName').value.trim();
@@ -1495,6 +1515,7 @@ function prefillFromOFF(p,code){
   document.getElementById('fBrand').value=((p.brands||'').split(',')[0]||'').trim();
   document.getElementById('fServQty').value=servQty;
   setUnitValue(servUnit);
+  servScaleBasis=servQty;
   let any=false, hadExtra=false;
   NUT_FIELDS.forEach(k=>{
     const el=document.getElementById('n_'+k);if(!el)return;
@@ -1860,6 +1881,7 @@ function prefillFromUSDA(food){
   const basis=usdaServingBasis(food);
   document.getElementById('fServQty').value=basis.servQty;
   setUnitValue(basis.servUnit);
+  servScaleBasis=basis.servQty;
   const per100=usdaPer100(food.foodNutrients||[]);
   let any=false,hadExtra=false;
   NUT_FIELDS.forEach(k=>{
