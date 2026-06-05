@@ -198,6 +198,10 @@
   .disclose{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line);margin-top:10px;font-size:14.5px;font-weight:600;color:var(--green);}
   .fiber-toggle{background:none;border:none;padding:6px 0 0;font-size:12.5px;font-weight:600;color:var(--green);text-align:left;font-family:'Hanken Grotesk',sans-serif;}
   .fiber-hint{font-size:11.5px;color:var(--amber);margin-top:8px;line-height:1.5;}
+  .el-note{font-size:11.5px;color:var(--ink-faint);margin-top:10px;line-height:1.5;}
+  .water-row{display:flex;gap:8px;align-items:center;}
+  .water-row input{flex:1;}
+  .water-unit{flex:none;width:auto;min-width:84px;}
   .disclose svg{width:18px;height:18px;transition:transform .2s;}
   .disclose.open svg{transform:rotate(180deg);}
   .collapse{display:none;}
@@ -219,6 +223,16 @@
   .meal-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 24px;}
   .meal-chip{padding:9px 16px;border-radius:30px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:600;color:var(--ink-soft);}
   .meal-chip.sel{background:var(--green);color:#fff;}
+  .time-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 24px;}
+  .time-label{font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  .time-opt{font-weight:500;color:var(--ink-faint);}
+  .time-ctl{display:flex;align-items:center;gap:8px;}
+  .time-input{border:none;background:var(--line-soft);border-radius:12px;padding:8px 12px;font-family:'Hanken Grotesk',sans-serif;font-size:14.5px;font-weight:700;color:var(--ink-faint);}
+  .time-input.accepted{color:var(--ink);background:var(--green-wash);}
+  .time-q{width:26px;height:26px;border-radius:50%;background:var(--line-soft);color:var(--ink-soft);font-weight:700;font-size:13px;flex:none;}
+  .time-ok{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--card);color:var(--green-bright);flex:none;border:1.5px solid var(--green-bright);}
+  .time-ok svg{width:16px;height:16px;}
+  .time-ok.on{background:var(--green-bright);color:#fff;}
   .seg{display:flex;gap:6px;background:var(--line-soft);border-radius:30px;padding:4px;margin-bottom:14px;}
   .seg button{flex:1;padding:9px 0;border-radius:24px;background:transparent;font-size:13.5px;font-weight:600;color:var(--ink-soft);font-family:'Hanken Grotesk',sans-serif;}
   .seg button.sel{background:var(--card);color:var(--green);box-shadow:var(--shadow);}
@@ -435,7 +449,7 @@
       <input type="text" id="pickSearch" placeholder="Search foods & meals" oninput="renderPicker()">
     </div>
     <button class="btn btn-scan" id="pickScanBtn" onclick="openScan('log')" style="margin-bottom:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode</button>
-    <button class="btn btn-soft" id="pickCreateBtn" onclick="openCreateFood(true)" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
+    <button class="btn btn-soft" id="pickCreateBtn" onclick="createFoodFromPicker()" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
     <div id="pickerList"></div>
   </div>
 </div>
@@ -482,6 +496,16 @@
     </div>
     <div class="serving-pick" id="pServingUnit"></div>
     <div class="meal-select" id="pMealSelect"></div>
+    <div class="time-row" id="pTimeRow">
+      <span class="time-label">Time eaten <span class="time-opt">(optional)</span></span>
+      <div class="time-ctl">
+        <input type="time" id="pTime" class="time-input">
+        <button type="button" class="time-q" id="pTimeQ" onclick="explainTime()" aria-label="What is this?">?</button>
+        <button type="button" class="time-ok" id="pTimeOk" onclick="toggleTimeAccept()" aria-label="Save this time">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </button>
+      </div>
+    </div>
     <div class="nutprev" id="pNutPrev"></div>
     <div class="pf-source" id="pSource"></div>
     <button class="btn btn-danger" id="portionDelete" onclick="deleteEditingEntry()" style="display:none;">Remove from diary</button>
@@ -489,10 +513,10 @@
 </div>
 
 <!-- ===== CREATE / EDIT FOOD SHEET ===== -->
-<div class="scrim" id="foodScrim" onclick="closeSheet('food')"></div>
+<div class="scrim" id="foodScrim" onclick="closeFoodSheet()"></div>
 <div class="sheet" id="foodSheet">
   <div class="sheet-head"><div class="grab"></div>
-    <button class="x" onclick="closeSheet('food')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="x" onclick="closeFoodSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     <h3 id="foodSheetTitle">Create Food</h3>
     <button class="save" onclick="saveFood()">Save</button>
   </div>
@@ -501,7 +525,7 @@
     <div class="field"><label>Name</label><input type="text" id="fName" placeholder="e.g. Greek yogurt"></div>
     <div class="field"><label>Brand (optional)</label><input type="text" id="fBrand" placeholder="e.g. Fage"></div>
     <div class="field-row">
-      <div class="field"><label>Serving size</label><input type="number" inputmode="decimal" step="any" id="fServQty" placeholder="1" value="1" onchange="onServingSizeChange()"></div>
+      <div class="field"><label>Serving size</label><input type="text" inputmode="decimal" step="any" id="fServQty" placeholder="1" value="1" onchange="onServingSizeChange()"></div>
       <div class="field"><label>Unit</label>
         <select id="fServUnit" onchange="onUnitChange()"></select>
         <input type="text" id="fServUnitCustom" placeholder="Type a unit (e.g. scoop)" style="display:none;margin-top:8px;">
@@ -509,42 +533,71 @@
     </div>
     <div class="section-label">Nutrition per serving</div>
     <div class="nutri-grid">
-      <div class="field req"><label>Calories</label><input type="number" inputmode="decimal" step="any" id="n_calories" placeholder="0"></div>
-      <div class="field"><label>Protein (g)</label><input type="number" inputmode="decimal" step="any" id="n_protein" placeholder="0"></div>
-      <div class="field"><label>Total Carbs (g)</label><input type="number" inputmode="decimal" step="any" id="n_totalCarbs" placeholder="0"></div>
-      <div class="field"><label>Total Fat (g)</label><input type="number" inputmode="decimal" step="any" id="n_totalFat" placeholder="0"></div>
+      <div class="field req"><label>Calories</label><input type="text" inputmode="decimal" step="any" id="n_calories" placeholder="0"></div>
+      <div class="field"><label>Total Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_totalFat" placeholder="0"></div>
+      <div class="field"><label>Saturated Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_satFat"></div>
+      <div class="field"><label>Trans Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_transFat"></div>
+      <div class="field"><label>Polyunsaturated Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_polyFat"></div>
+      <div class="field"><label>Monounsaturated Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_monoFat"></div>
+      <div class="field"><label>Cholesterol (mg)</label><input type="text" inputmode="decimal" step="any" id="n_cholesterol"></div>
+      <div class="field"><label>Sodium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_sodium"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Total Carbohydrate (g)</label><input type="text" inputmode="decimal" step="any" id="n_totalCarbs" placeholder="0"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Dietary Fiber (g)</label><input type="text" inputmode="decimal" step="any" id="n_fiber">
+        <button type="button" class="fiber-toggle" id="fiberToggle" onclick="toggleFiberBreakdown()">+ Break into soluble / insoluble</button>
+        <div id="fiberBreak" style="display:none;">
+          <div class="nutri-grid" style="margin-top:8px;">
+            <div class="field"><label>Soluble Fiber (g)</label><input type="text" inputmode="decimal" step="any" id="n_fiberSoluble" oninput="onFiberSubInput()"></div>
+            <div class="field"><label>Insoluble Fiber (g)</label><input type="text" inputmode="decimal" step="any" id="n_fiberInsoluble" oninput="onFiberSubInput()"></div>
+          </div>
+          <div class="fiber-hint" id="fiberHint"></div>
+        </div>
+      </div>
+      <div class="field"><label>Total Sugars (g)</label><input type="text" inputmode="decimal" step="any" id="n_sugars"></div>
+      <div class="field"><label>Added Sugars (g)</label><input type="text" inputmode="decimal" step="any" id="n_addedSugars"></div>
+      <div class="field"><label>Sugar Alcohols (g)</label><input type="text" inputmode="decimal" step="any" id="n_sugarAlcohols"></div>
+      <div class="field"><label>Protein (g)</label><input type="text" inputmode="decimal" step="any" id="n_protein" placeholder="0"></div>
     </div>
 
-    <button class="disclose" id="moreBtn" onclick="toggleMore()">More nutrients<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+    <button class="disclose" id="moreBtn" onclick="toggleMore()">Vitamins &amp; minerals<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
     <div class="collapse" id="moreNutrients">
       <div class="nutri-grid" style="margin-top:4px;">
-        <div class="field"><label>Saturated Fat (g)</label><input type="number" inputmode="decimal" step="any" id="n_satFat"></div>
-        <div class="field"><label>Polyunsat. Fat (g)</label><input type="number" inputmode="decimal" step="any" id="n_polyFat"></div>
-        <div class="field"><label>Monounsat. (g)</label><input type="number" inputmode="decimal" step="any" id="n_monoFat"></div>
-        <div class="field"><label>Trans Fat (g)</label><input type="number" inputmode="decimal" step="any" id="n_transFat"></div>
-        <div class="field"><label>Cholesterol (mg)</label><input type="number" inputmode="decimal" step="any" id="n_cholesterol"></div>
-        <div class="field"><label>Sodium (mg)</label><input type="number" inputmode="decimal" step="any" id="n_sodium"></div>
-        <div class="field"><label>Potassium (mg)</label><input type="number" inputmode="decimal" step="any" id="n_potassium"></div>
-        <div class="field"><label>Dietary Fiber (g)</label><input type="number" inputmode="decimal" step="any" id="n_fiber"></div>
-        <div class="field" style="grid-column:1/-1;">
-          <button type="button" class="fiber-toggle" id="fiberToggle" onclick="toggleFiberBreakdown()">+ Break into soluble / insoluble</button>
-          <div id="fiberBreak" style="display:none;">
-            <div class="nutri-grid" style="margin-top:8px;">
-              <div class="field"><label>Soluble fiber (g)</label><input type="number" inputmode="decimal" step="any" id="n_fiberSoluble" oninput="onFiberSubInput()"></div>
-              <div class="field"><label>Insoluble fiber (g)</label><input type="number" inputmode="decimal" step="any" id="n_fiberInsoluble" oninput="onFiberSubInput()"></div>
-            </div>
-            <div class="fiber-hint" id="fiberHint"></div>
-          </div>
-        </div>
-        <div class="field"><label>Sugars (g)</label><input type="number" inputmode="decimal" step="any" id="n_sugars"></div>
-        <div class="field"><label>Added Sugars (g)</label><input type="number" inputmode="decimal" step="any" id="n_addedSugars"></div>
-        <div class="field"><label>Sugar Alcohols (g)</label><input type="number" inputmode="decimal" step="any" id="n_sugarAlcohols"></div>
-        <div class="field"><label>Vitamin A (%)</label><input type="number" inputmode="decimal" step="any" id="n_vitA"></div>
-        <div class="field"><label>Vitamin C (%)</label><input type="number" inputmode="decimal" step="any" id="n_vitC"></div>
-        <div class="field"><label>Calcium (%)</label><input type="number" inputmode="decimal" step="any" id="n_calcium"></div>
-        <div class="field"><label>Iron (%)</label><input type="number" inputmode="decimal" step="any" id="n_iron"></div>
-        <div class="field"><label>Vitamin D (%)</label><input type="number" inputmode="decimal" step="any" id="n_vitD"></div>
+        <div class="field"><label>Vitamin D (%)</label><input type="text" inputmode="decimal" step="any" id="n_vitD"></div>
+        <div class="field"><label>Calcium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_calcium"></div>
+        <div class="field"><label>Iron (%)</label><input type="text" inputmode="decimal" step="any" id="n_iron"></div>
+        <div class="field"><label>Potassium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_potassium"></div>
+        <div class="field"><label>Vitamin A (%)</label><input type="text" inputmode="decimal" step="any" id="n_vitA"></div>
+        <div class="field"><label>Vitamin C (%)</label><input type="text" inputmode="decimal" step="any" id="n_vitC"></div>
       </div>
+    </div>
+
+    <button class="disclose" id="elBtn" onclick="toggleEl()">Electrolytes<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="collapse" id="elGroup">
+      <div class="nutri-grid" style="margin-top:4px;">
+        <div class="field"><label>Sodium (mg)</label><input type="text" inputmode="decimal" step="any" id="m_sodium"></div>
+        <div class="field"><label>Potassium (mg)</label><input type="text" inputmode="decimal" step="any" id="m_potassium"></div>
+        <div class="field"><label>Calcium (mg)</label><input type="text" inputmode="decimal" step="any" id="m_calcium"></div>
+        <div class="field"><label>Magnesium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_magnesium"></div>
+        <div class="field"><label>Chloride (mg)</label><input type="text" inputmode="decimal" step="any" id="n_chloride"></div>
+        <div class="field"><label>Phosphorus (mg)</label><input type="text" inputmode="decimal" step="any" id="n_phosphorus"></div>
+        <div class="field"><label>Bicarbonate (mg)</label><input type="text" inputmode="decimal" step="any" id="n_bicarbonate"></div>
+      </div>
+      <div class="field" style="margin-top:12px;"><label>Water</label>
+        <div class="water-row">
+          <input type="text" inputmode="decimal" step="any" id="wAmt" placeholder="0">
+          <select id="wUnit" class="water-unit">
+            <option value="floz">fl oz</option>
+            <option value="cup">cups</option>
+            <option value="ml">mL</option>
+            <option value="l">L</option>
+          </select>
+        </div>
+      </div>
+      <div class="el-note">Sodium, potassium, and calcium mirror the fields above — editing either place keeps both in sync. Water counts toward your daily hydration.</div>
+    </div>
+    <button class="disclose" id="microBtn" onclick="toggleMicro()">Micronutrients<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="collapse" id="microGroup">
+      <div class="nutri-grid" id="microGrid" style="margin-top:4px;"></div>
+      <div class="el-note">The full vitamin and trace-mineral panel. Leave any blank — they only roll up to your daily totals when you enter a value.</div>
     </div>
     <button class="btn btn-danger" id="foodDeleteBtn" onclick="deleteFood()" style="margin-top:18px;display:none;">Delete this food</button>
   </div>
@@ -599,8 +652,24 @@
 const KEY='plate.data.v1';
 const MEALS=['breakfast','lunch','dinner','snacks'];
 const MEAL_LABEL={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snacks:'Snacks'};
-const APP_BUILD='2026-06-02.2';
-const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','fiberSoluble','fiberInsoluble','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD'];
+const APP_BUILD='2026-06-02.7';
+const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','fiberSoluble','fiberInsoluble','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD','magnesium','chloride','phosphorus','bicarbonate','water','vitE','vitK','b1','b2','b3','b5','b6','b7','b9','b12','choline','zinc','copper','manganese','selenium','iodine','chromium','molybdenum'];
+// Micronutrient panel (vitamins + trace minerals beyond the FDA-label set already in "Vitamins & minerals"
+// and the electrolytes). [internalKey, label, unit] — fields are generated into the Micronutrients section.
+const MICROS=[
+  ['vitE','Vitamin E','mg'],['vitK','Vitamin K','mcg'],
+  ['b1','Thiamin (B1)','mg'],['b2','Riboflavin (B2)','mg'],['b3','Niacin (B3)','mg'],
+  ['b5','Pantothenic acid (B5)','mg'],['b6','Vitamin B6','mg'],['b7','Biotin (B7)','mcg'],
+  ['b9','Folate (B9)','mcg'],['b12','Vitamin B12','mcg'],['choline','Choline','mg'],
+  ['zinc','Zinc','mg'],['copper','Copper','mg'],['manganese','Manganese','mg'],
+  ['selenium','Selenium','mcg'],['iodine','Iodine','mcg'],['chromium','Chromium','mcg'],['molybdenum','Molybdenum','mcg']
+];
+const MICRO_KEYS=MICROS.map(m=>m[0]);
+// internalKey -> Health Data Spec daily registry key
+const MICRO_DAILY=[['vitE','vit_e_mg'],['vitK','vit_k_mcg'],['b1','thiamin_mg'],['b2','riboflavin_mg'],['b3','niacin_mg'],['b5','pantothenic_mg'],['b6','vit_b6_mg'],['b7','biotin_mcg'],['b9','folate_mcg'],['b12','vit_b12_mcg'],['choline','choline_mg'],['zinc','zinc_mg'],['copper','copper_mg'],['manganese','manganese_mg'],['selenium','selenium_mcg'],['iodine','iodine_mcg'],['chromium','chromium_mcg'],['molybdenum','molybdenum_mcg']];
+// Water entry: any liquid unit -> stored canonically in fl oz (matches spec water_oz). [value, label, factor->floz]
+const WATER_UNITS=[['floz','fl oz',1],['cup','cups',8],['ml','mL',0.0338140227],['l','L',33.8140227]];
+function toFlOz(v,u){const r=WATER_UNITS.find(x=>x[0]===u);return r?v*r[2]:v;}
 
 let DB=load();
 function blankDB(){return{goals:{calories:2000,carbs:200,protein:150,fat:60},foods:{},meals:{},log:{},updatedAt:''};}
@@ -715,12 +784,13 @@ function renderDiary(){
   document.getElementById('diary').innerHTML=MEALS.map(m=>{
     const entries=day[m]||[];
     let kcal=0;entries.forEach(e=>kcal+=entryNut(e).calories);
-    const rows=entries.map((e,i)=>{
+    const ordered=entries.map((e,i)=>({e,i})).sort((a,b)=>{const ta=a.e.time||'99:99',tb=b.e.time||'99:99';return ta<tb?-1:ta>tb?1:a.i-b.i;});
+    const rows=ordered.map(({e,i})=>{
       const n=entryNut(e);
       const br=entryBrand(e);
       return `<div class="entry" onclick="editEntry('${m}',${i})">
         <div class="entry-info"><div class="entry-name">${esc(refName(e))}${br?` <span class="entry-brand">${esc(br)}</span>`:''}</div>
-        <div class="entry-meta">${esc(entryAmountText(e))}</div></div>
+        <div class="entry-meta">${esc(entryAmountText(e))}${e.time?` · ${esc(fmtTime(e.time))}`:''}</div></div>
         <div class="entry-kcal">${r0(n.calories)}</div>
         <button class="entry-x" onclick="event.stopPropagation();removeEntry('${m}',${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>`;
@@ -759,8 +829,13 @@ function removeEntry(m,i){DB.log[selDate][m].splice(i,1);save();renderToday();to
 /* ============ PICKER ============ */
 let pickerMeal='breakfast',pickerMode='log';
 function openPicker(m){pickerMeal=m;pickerMode='log';document.getElementById('pickerTitle').textContent='Add to '+MEAL_LABEL[m];document.getElementById('pickSearch').value='';setPickerExtras(true);renderPicker();openSheet('picker');}
-function openPickerForMeal(){pickerMode='meal';closeSheet('meal');document.getElementById('pickerTitle').textContent='Add ingredient';document.getElementById('pickSearch').value='';setPickerExtras(false);renderPicker();openSheet('picker');}
+function openPickerForMeal(){pickerMode='meal';closeSheet('meal');document.getElementById('pickerTitle').textContent='Add ingredient';document.getElementById('pickSearch').value='';setPickerExtras(false);document.getElementById('pickCreateBtn').style.display='';renderPicker();openSheet('picker');}
 function setPickerExtras(show){const s=document.getElementById('pickScanBtn'),c=document.getElementById('pickCreateBtn');if(s)s.style.display=show?'':'none';if(c)c.style.display=show?'':'none';}
+// "Create a new food" from the picker: in meal mode, return to the meal with the new food added.
+function createFoodFromPicker(){
+  if(pickerMode==='meal'){openCreateFood(false);pendingMealAfterSave=true;}
+  else{openCreateFood(true);}
+}
 function cancelPicker(){closeSheet('picker');if(pickerMode==='meal')openSheet('meal');}
 function renderPicker(){
   const q=document.getElementById('pickSearch').value.toLowerCase().trim();
@@ -787,7 +862,7 @@ function pickItem(type,id){
 }
 
 /* ============ PORTION ============ */
-let portionRef=null, editingEntry=null, portionSelUnit='serving';
+let portionRef=null, editingEntry=null, portionSelUnit='serving', portionTimeAccepted=false;
 function renderPortionUnits(){
   const sel=document.getElementById('pQtyUnit');if(!sel)return;
   if(!portionRef||portionRef.type==='meal'){
@@ -848,6 +923,10 @@ function openPortion(type,id,opts){
     document.getElementById('pIngredients').innerHTML='';
   }
   document.getElementById('pMealSelect').innerHTML=MEALS.map(m=>`<button class="meal-chip${m===pickerMeal?' sel':''}" data-m="${m}" onclick="pickerMeal='${m}';renderMealChips();">${MEAL_LABEL[m]}</button>`).join('');
+  const hasTime=(opts.time!=null&&opts.time!=='');
+  document.getElementById('pTime').value=hasTime?opts.time:nowHHMM();
+  portionTimeAccepted=hasTime;
+  renderTimeCtl();
   renderPortionPreview();
   const srcEl=document.getElementById('pSource');
   if(srcEl)srcEl.textContent=(type==='meal')?'Your meal':('Source: '+sourceLabel(foodSource(obj)));
@@ -855,6 +934,19 @@ function openPortion(type,id,opts){
   document.getElementById('portionSave').onclick=commitPortion;
 }
 function renderMealChips(){document.querySelectorAll('#pMealSelect .meal-chip').forEach(c=>c.classList.toggle('sel',c.dataset.m===pickerMeal));}
+function nowHHMM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function fmtTime(hhmm){if(!hhmm)return'';const p=hhmm.split(':');const h=Number(p[0]),m=Number(p[1]);if(!isFinite(h)||!isFinite(m))return'';const ap=h<12?'AM':'PM';let hh=h%12;if(hh===0)hh=12;return hh+':'+String(m).padStart(2,'0')+' '+ap;}
+// Optional "time eaten": defaults to now but only saved if the user taps the green check.
+function renderTimeCtl(){
+  const inp=document.getElementById('pTime'),ok=document.getElementById('pTimeOk'),q=document.getElementById('pTimeQ');
+  if(!inp)return;
+  inp.classList.toggle('accepted',portionTimeAccepted);
+  ok.classList.toggle('on',portionTimeAccepted);
+  if(q)q.style.display=portionTimeAccepted?'none':'';
+  ok.setAttribute('aria-label',portionTimeAccepted?'Clear time':'Save this time');
+}
+function toggleTimeAccept(){portionTimeAccepted=!portionTimeAccepted;renderTimeCtl();}
+function explainTime(){toast('Tap the green check to save the exact time. Otherwise it just goes under the meal.');}
 function portionStep(){
   if(portionRef.type==='meal')return 1;
   const u=(portionSelUnit||'').toLowerCase();
@@ -893,6 +985,8 @@ function commitPortion(){
   const mult=portionRef.type==='meal'?amount:foodMultForUnit(DB.foods[portionRef.id],amount,portionSelUnit);
   const unit=portionRef.type==='meal'?'serving':portionSelUnit;
   const entry={type:portionRef.type,refId:portionRef.id,qty:mult,amt:amount,unit:unit};
+  const _t=document.getElementById('pTime').value;
+  if(portionTimeAccepted&&_t)entry.time=_t;
   if(editingEntry){
     // remove from its old meal, then add to the (possibly changed) selected meal
     const oldArr=(DB.log[selDate]&&DB.log[selDate][editingEntry.meal])||[];
@@ -916,7 +1010,7 @@ function editEntry(meal,index){
   const obj=e.type==='meal'?DB.meals[e.refId]:DB.foods[e.refId];
   if(!obj){toast('This item was deleted from your library');return;}
   const amt=(e.amt!=null)?e.amt:(e.type==='meal'?e.qty:e.qty*((obj.servQty)||1));
-  openPortion(e.type,e.refId,{amount:amt,unit:e.unit,meal,index,editing:true});
+  openPortion(e.type,e.refId,{amount:amt,unit:e.unit,meal,index,editing:true,time:e.time});
 }
 function deleteEditingEntry(){
   if(!editingEntry)return;
@@ -958,7 +1052,7 @@ function renderFoods(){
 let editingFood=null, servScaleBasis=0;
 function openCreateFood(forLog){
   closeSheet('picker');
-  editingFood=null;currentBarcode='';currentSource='';currentFdcId='';pendingLogAfterSave=(forLog===true);
+  editingFood=null;currentBarcode='';currentSource='';currentFdcId='';pendingLogAfterSave=(forLog===true);pendingMealAfterSave=false;
   document.getElementById('foodSheetTitle').textContent='Create Food';
   document.getElementById('foodDeleteBtn').style.display='none';
   document.getElementById('fName').value='';document.getElementById('fBrand').value='';
@@ -967,6 +1061,11 @@ function openCreateFood(forLog){
   document.getElementById('moreNutrients').classList.remove('open');
   document.getElementById('moreBtn').classList.remove('open');
   setFiberBreakdown(false);
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(false);
+  document.getElementById('wAmt').value='';
+  document.getElementById('wUnit').value='floz';
+  setMicronutrientsOpen(false);
   openSheet('food');
 }
 function editFood(id){
@@ -979,9 +1078,15 @@ function editFood(id){
   setUnitValue(f.servUnit||'');
   servScaleBasis=0;
   NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);if(el){const v=f.nut[k];el.value=(v===0||v===undefined||v===null)?'':v;}});
-  document.getElementById('moreNutrients').classList.remove('open');
-  document.getElementById('moreBtn').classList.remove('open');
+  const _hasMicro=['vitD','calcium','iron','potassium','vitA','vitC'].some(k=>{const el=document.getElementById('n_'+k);return el&&el.value!=='';});
+  document.getElementById('moreNutrients').classList.toggle('open',_hasMicro);
+  document.getElementById('moreBtn').classList.toggle('open',_hasMicro);
   setFiberBreakdown(!!(f.nut.fiberSoluble||f.nut.fiberInsoluble));
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(EL_ONLY.some(k=>f.nut[k]));
+  document.getElementById('wAmt').value=f.nut.water?round1(f.nut.water):'';
+  document.getElementById('wUnit').value='floz';
+  setMicronutrientsOpen(MICRO_KEYS.some(k=>f.nut[k]));
   openSheet('food');
 }
 /* ---- Unit dropdown helpers ---- */
@@ -1016,6 +1121,35 @@ function onUnitChange(){
   else{custom.style.display='none';}
 }
 function toggleMore(){document.getElementById('moreNutrients').classList.toggle('open');document.getElementById('moreBtn').classList.toggle('open');}
+function toggleEl(){document.getElementById('elGroup').classList.toggle('open');document.getElementById('elBtn').classList.toggle('open');}
+// Sodium/potassium/calcium appear in both their normal field and the Electrolytes section,
+// bound to one stored value (the n_* field). Mirrors (m_*) are display-only, kept in sync.
+const EL_MIRROR=['sodium','potassium','calcium'];
+const EL_ONLY=['magnesium','chloride','phosphorus','bicarbonate'];
+function wireElectrolyteSync(){
+  EL_MIRROR.forEach(k=>{
+    const n=document.getElementById('n_'+k), m=document.getElementById('m_'+k);
+    if(!n||!m)return;
+    n.addEventListener('input',()=>{m.value=n.value;});
+    m.addEventListener('input',()=>{n.value=m.value;});
+  });
+}
+function pushElectrolyteMirrors(){
+  EL_MIRROR.forEach(k=>{const n=document.getElementById('n_'+k),m=document.getElementById('m_'+k);if(n&&m)m.value=n.value;});
+}
+function setElectrolytesOpen(open){
+  document.getElementById('elGroup').classList.toggle('open',open);
+  document.getElementById('elBtn').classList.toggle('open',open);
+}
+function buildMicroFields(){
+  const g=document.getElementById('microGrid');if(!g)return;
+  g.innerHTML=MICROS.map(([k,label,unit])=>`<div class="field"><label>${label} (${unit})</label><input type="text" inputmode="decimal" step="any" id="n_${k}"></div>`).join('');
+}
+function toggleMicro(){document.getElementById('microGroup').classList.toggle('open');document.getElementById('microBtn').classList.toggle('open');}
+function setMicronutrientsOpen(open){
+  document.getElementById('microGroup').classList.toggle('open',open);
+  document.getElementById('microBtn').classList.toggle('open',open);
+}
 function setFiberBreakdown(open){
   const b=document.getElementById('fiberBreak'),t=document.getElementById('fiberToggle');
   if(!b||!t)return;
@@ -1058,6 +1192,8 @@ function saveFood(){
   const cal=document.getElementById('n_calories').value;
   if(cal===''){toast('Calories are required');return;}
   const nut={};NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);const v=el?el.value:'';nut[k]=v===''?0:Number(v);});
+  const _wv=parseFloat(document.getElementById('wAmt').value);
+  nut.water=(isFinite(_wv)&&_wv>0)?toFlOz(_wv,document.getElementById('wUnit').value):0;
   const f={
     id:editingFood||uid(),name,
     brand:document.getElementById('fBrand').value.trim(),
@@ -1072,6 +1208,8 @@ function saveFood(){
   DB.foods[f.id]=f;save();closeSheet('food');
   if(document.getElementById('s-foods').classList.contains('active'))renderFoods();
   renderToday();
+  // Created while building a meal -> add it as an ingredient and return to the meal.
+  if(wasNew && pendingMealAfterSave){pendingMealAfterSave=false;pendingLogAfterSave=false;setTimeout(()=>addMealComp(newId),250);toast('Added to meal');return;}
   // If this food was just created via the logging flow, jump straight to logging it.
   if(wasNew && pendingLogAfterSave){pendingLogAfterSave=false;setTimeout(()=>openPortion('food',newId),250);}
   toast(editingFood?'Food updated':'Food saved');
@@ -1094,10 +1232,13 @@ function renderMealComps(){
   else{
     el.innerHTML=mealDraft.map((c,i)=>{
       const f=DB.foods[c.foodId];if(!f)return'';
+      const hasUnit=f.servUnit&&(f.servQty>0);
+      const dispVal=hasUnit?fmtQty(c.qty*f.servQty):fmtQty(c.qty);
+      const dispUnit=hasUnit?esc(f.servUnit):'srv';
       return `<div class="comp">
         <div class="comp-info"><div class="row-t" style="font-size:14.5px">${esc(f.name)}</div>
         <div class="row-s">${r0(foodNut(f,c.qty).calories)} cal</div></div>
-        <div class="goal-input"><input type="number" inputmode="decimal" step="any" value="${fmtQty(c.qty)}" style="width:64px" onchange="setCompQty(${i},this.value)"><span style="font-size:12px;color:var(--ink-faint);font-weight:600">${esc(f.servUnit||'srv')}</span></div>
+        <div class="goal-input"><input type="number" inputmode="decimal" step="any" value="${dispVal}" style="width:64px" onchange="setCompQty(${i},this.value)"><span style="font-size:12px;color:var(--ink-faint);font-weight:600">${dispUnit}</span></div>
         <button class="entry-x" onclick="rmComp(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </div>`;
     }).join('');
@@ -1109,7 +1250,12 @@ function renderMealComps(){
     <div><div class="npv display" style="color:var(--protein)">${r0(n.protein)}g</div><div class="npl">Protein</div></div>
     <div><div class="npv display" style="color:var(--fat)">${r0(n.totalFat)}g</div><div class="npl">Fat</div></div>`;
 }
-function setCompQty(i,v){mealDraft[i].qty=Number(v)||0;renderMealComps();}
+function setCompQty(i,v){
+  const f=DB.foods[mealDraft[i].foodId];
+  const x=Number(v)||0;
+  mealDraft[i].qty=(f&&f.servUnit&&f.servQty>0)?x/f.servQty:x;
+  renderMealComps();
+}
 function rmComp(i){mealDraft.splice(i,1);renderMealComps();}
 function saveMeal(){
   const name=document.getElementById('mName').value.trim();
@@ -1188,7 +1334,6 @@ function buildDailySummary(){
   const out={};
   Object.keys(DB.log||{}).forEach(date=>{
     const t=dayTotals(date);
-    if(r0(t.calories)===0 && r0(t.protein)===0 && r0(t.totalCarbs)===0 && r0(t.totalFat)===0)return;
     const row={
       calories:r0(t.calories),
       protein_g:r0(t.protein),
@@ -1200,6 +1345,10 @@ function buildDailySummary(){
     };
     if(r0(t.fiberSoluble)>0)row.fiber_soluble_g=r0(t.fiberSoluble);
     if(r0(t.fiberInsoluble)>0)row.fiber_insoluble_g=r0(t.fiberInsoluble);
+    [['potassium','potassium_mg'],['calcium','calcium_mg'],['magnesium','magnesium_mg'],['chloride','chloride_mg'],['phosphorus','phosphorus_mg'],['bicarbonate','bicarbonate_mg']].forEach(([f,key])=>{if(r0(t[f])>0)row[key]=r0(t[f]);});
+    {const w=round1(t.water);if(w>0)row.water_oz=w;}
+    MICRO_DAILY.forEach(([f,key])=>{const v=round1(t[f]);if(v>0)row[key]=v;});
+    if(Object.values(row).every(v=>!v))return; // nothing logged this day at all
     out[date]=row;
   });
   return out;
@@ -1247,6 +1396,18 @@ function confirmReset(){
 /* ============ SHEET HELPERS ============ */
 function openSheet(name){document.getElementById(name+'Scrim').classList.add('open');document.getElementById(name+'Sheet').classList.add('open');document.body.style.overflow='hidden';}
 function closeSheet(name){document.getElementById(name+'Scrim').classList.remove('open');document.getElementById(name+'Sheet').classList.remove('open');document.body.style.overflow='';}
+// Closing the food sheet while mid-meal-build returns to the meal (draft preserved).
+function closeFoodSheet(){
+  closeSheet('food');
+  if(pendingMealAfterSave){pendingMealAfterSave=false;setTimeout(()=>{renderMealComps();openSheet('meal');},250);}
+}
+// Tapping a numeric field in the food sheet selects its whole value, so a scanned-in
+// number can be corrected by just typing over it (these are text+inputmode for iOS).
+function wireSelectOnFocus(){
+  document.querySelectorAll('#foodSheet input[inputmode="decimal"]').forEach(inp=>{
+    inp.addEventListener('focus',function(){const el=this;setTimeout(()=>{try{el.select();}catch(e){}},0);});
+  });
+}
 
 /* ============ UTIL ============ */
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -1254,7 +1415,7 @@ let toastTimer;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1900);}
 
 /* ============ BARCODE SCANNER + OPEN FOOD FACTS ============ */
-let currentBarcode='', pendingLogAfterSave=false, scanContext='log', currentSource='', currentFdcId='';
+let currentBarcode='', pendingLogAfterSave=false, pendingMealAfterSave=false, scanContext='log', currentSource='', currentFdcId='';
 let qrScanner=null, scanHandling=false, lastScanCode='', decodeGen=0, decodeTimer=null;
 const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
 const QUAGGA_SRC='https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js';
@@ -1524,9 +1685,12 @@ function prefillFromOFF(p,code){
     v=v*factor;
     v=k==='calories'?Math.round(v):round1(v);
     el.value=v;any=true;
-    if(!['calories','protein','totalCarbs','totalFat'].includes(k))hadExtra=true;
+    if(['vitD','calcium','iron','potassium','vitA','vitC'].includes(k))hadExtra=true;
   });
   if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(EL_ONLY.some(k=>document.getElementById('n_'+k).value!==''));
+  setMicronutrientsOpen(MICRO_KEYS.some(k=>document.getElementById('n_'+k).value!==''));
   if(scanContext==='log')pendingLogAfterSave=true;
   toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
 }
@@ -1637,7 +1801,26 @@ function usdaPer100(fn){
     addedSugars:usdaNum(fn,'539'),
     cholesterol:usdaNum(fn,'601'),  // already mg
     sodium:usdaNum(fn,'307'),       // already mg
-    potassium:usdaNum(fn,'306')     // already mg
+    potassium:usdaNum(fn,'306'),    // already mg
+    calcium:usdaNum(fn,'301'),      // mg
+    magnesium:usdaNum(fn,'304'),    // mg
+    phosphorus:usdaNum(fn,'305'),   // mg
+    vitE:usdaNum(fn,'323'),         // mg
+    vitK:usdaNum(fn,'430'),         // mcg
+    b1:usdaNum(fn,'404'),           // mg
+    b2:usdaNum(fn,'405'),           // mg
+    b3:usdaNum(fn,'406'),           // mg
+    b5:usdaNum(fn,'410'),           // mg
+    b6:usdaNum(fn,'415'),           // mg
+    b7:usdaNum(fn,'416'),           // mcg
+    b9:usdaNum(fn,'417'),           // mcg
+    b12:usdaNum(fn,'418'),          // mcg
+    choline:usdaNum(fn,'421'),      // mg
+    zinc:usdaNum(fn,'309'),         // mg
+    copper:usdaNum(fn,'312'),       // mg
+    manganese:usdaNum(fn,'315'),    // mg
+    selenium:usdaNum(fn,'317'),     // mcg
+    iodine:usdaNum(fn,'314')        // mcg
   };
 }
 function usdaServingBasis(food){
@@ -1891,10 +2074,13 @@ function prefillFromUSDA(food){
     v=v*basis.factor;
     v=k==='calories'?Math.round(v):round1(v);
     el.value=v;any=true;
-    if(!['calories','protein','totalCarbs','totalFat'].includes(k))hadExtra=true;
+    if(['vitD','calcium','iron','potassium','vitA','vitC'].includes(k))hadExtra=true;
   });
   if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
   setFiberBreakdown(document.getElementById('n_fiberSoluble').value!==''||document.getElementById('n_fiberInsoluble').value!=='');
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(EL_ONLY.some(k=>document.getElementById('n_'+k).value!==''));
+  setMicronutrientsOpen(MICRO_KEYS.some(k=>document.getElementById('n_'+k).value!==''));
   if(usdaContext==='log')pendingLogAfterSave=true;
   toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
 }
@@ -1917,9 +2103,12 @@ function clearUsdaKey(){setUsdaKey('');renderUsdaKeyUI();toast('Key removed');}
 
 /* ============ INIT ============ */
 buildUnitSelect();
+buildMicroFields();
 renderToday();
 renderUsdaKeyUI();
 renderSyncUI();
+wireSelectOnFocus();
+wireElectrolyteSync();
 (function(){const bn=document.getElementById('buildNote');if(bn)bn.textContent='Plate · build '+APP_BUILD;})();
 autoConnectDrive();
 </script>

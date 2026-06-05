@@ -69,9 +69,38 @@ Every key inside a `daily` date object must come from this registry, so no two a
 | `fiber_insoluble_g` | g | M |
 | `sugar_g` | g | M |
 | `sodium_mg` | mg | M |
+| `potassium_mg` | mg | M |
+| `calcium_mg` | mg | M |
+| `magnesium_mg` | mg | M |
+| `chloride_mg` | mg | M |
+| `phosphorus_mg` | mg | M |
+| `bicarbonate_mg` | mg | M |
 | `water_oz` | fl oz | M |
 | `caffeine_mg` | mg | M |
 | `alcohol_drinks` | standard drinks | M |
+
+### Micronutrients (vitamins & trace minerals) — owned by `plate`
+The fuller panel entered in Plate's "Micronutrients" section. All manual; each only appears on days a value was logged.
+| Key | Unit | Source |
+|---|---|---|
+| `vit_e_mg` | mg | M |
+| `vit_k_mcg` | mcg | M |
+| `thiamin_mg` | mg | M |
+| `riboflavin_mg` | mg | M |
+| `niacin_mg` | mg | M |
+| `pantothenic_mg` | mg | M |
+| `vit_b6_mg` | mg | M |
+| `biotin_mcg` | mcg | M |
+| `folate_mcg` | mcg | M |
+| `vit_b12_mcg` | mcg | M |
+| `choline_mg` | mg | M |
+| `zinc_mg` | mg | M |
+| `copper_mg` | mg | M |
+| `manganese_mg` | mg | M |
+| `selenium_mcg` | mcg | M |
+| `iodine_mcg` | mcg | M |
+| `chromium_mcg` | mcg | M |
+| `molybdenum_mcg` | mcg | M |
 
 ### Body metrics — owned by `body`
 | Key | Unit | Source |
