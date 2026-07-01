@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Plate">
+<meta name="theme-color" content="#FAF6EE">
+<title>Plate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAF6EE;
+    --card:#FFFFFF;
+    --ink:#23231F;
+    --ink-soft:#6E6B61;
+    --ink-faint:#A8A498;
+    --line:#ECE6D8;
+    --line-soft:#F2EDE2;
+    --green:#2E5D3B;
+    --green-bright:#3F8F52;
+    --green-wash:#EAF1E8;
+    --carb:#C98A2B;     /* amber */
+    --carb-wash:#F8EFDD;
+    --protein:#B4503C;  /* terracotta */
+    --protein-wash:#F7E7E1;
+    --fat:#6B5B95;      /* plum */
+    --fat-wash:#ECE8F2;
+    --danger:#B4503C;
+    --shadow:0 1px 2px rgba(35,35,31,.04), 0 6px 20px rgba(35,35,31,.05);
+    --radius:20px;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Hanken Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:none;
+  }
+  .display{font-family:'Fraunces','Hanken Grotesk',Georgia,serif;}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  input,select{font-family:inherit;font-size:16px;}
+  ::-webkit-scrollbar{width:0;height:0;}
+
+  /* APP SHELL */
+  #app{max-width:520px;margin:0 auto;min-height:100%;position:relative;}
+  .screen{display:none;padding:calc(var(--safe-top) + 8px) 18px 120px;animation:fade .3s ease;}
+  .screen.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+  /* HEADER */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 2px 6px;}
+  .brand{display:flex;align-items:center;gap:9px;}
+  .logo{width:30px;height:30px;border-radius:9px;background:var(--green);display:grid;place-items:center;flex:none;}
+  .logo svg{width:17px;height:17px;}
+  .brand h1{font-size:21px;margin:0;font-weight:600;letter-spacing:-.01em;}
+  .screen-title{font-size:30px;font-weight:600;letter-spacing:-.02em;margin:6px 2px 18px;}
+
+  /* DATE STRIP */
+  .datehead{display:flex;align-items:center;justify-content:space-between;margin:8px 2px 4px;}
+  .datehead .dlabel{font-size:23px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:6px;}
+  .today-pill{font-size:12px;font-weight:600;color:var(--green);background:var(--green-wash);padding:4px 10px;border-radius:30px;}
+  .weekstrip{display:flex;justify-content:space-between;gap:4px;margin:14px 0 4px;}
+  .day{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 0;border-radius:14px;transition:background .15s;}
+  .day .dn{font-size:11px;color:var(--ink-faint);font-weight:600;letter-spacing:.04em;}
+  .day .dd{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:600;border:1.5px solid transparent;color:var(--ink-soft);}
+  .day.sel .dd{background:var(--green);color:#fff;}
+  .day.istoday:not(.sel) .dd{border-color:var(--green-bright);color:var(--green);}
+  .day.logged:not(.sel) .dd{background:var(--green-wash);color:var(--green);}
+
+  /* CARDS */
+  .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px;}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .card-head h3{margin:0;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);}
+
+  /* CALORIE RING CARD */
+  .cal-wrap{display:flex;align-items:center;gap:22px;}
+  .ring{position:relative;width:122px;height:122px;flex:none;}
+  .ring svg{transform:rotate(-90deg);}
+  .ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring .big{font-family:'Hanken Grotesk',sans-serif;font-size:31px;font-weight:700;line-height:1;letter-spacing:-.03em;}
+  .ring .sub{font-size:11px;color:var(--ink-faint);font-weight:600;margin-top:4px;letter-spacing:.03em;}
+  .cal-side{flex:1;}
+  .cal-row{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;}
+  .cal-row .k{font-size:13.5px;color:var(--ink-soft);font-weight:500;}
+  .cal-row .v{font-size:15px;font-weight:600;}
+  .cal-row .v.left{color:var(--green);}
+  .cal-row .v.over{color:var(--danger);}
+
+  /* MACROS */
+  .macros{display:flex;gap:12px;}
+  .macro{flex:1;}
+  .macro .ml{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:7px;}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .macro .mv{font-size:19px;font-weight:600;letter-spacing:-.01em;}
+  .macro .mv span{font-size:12.5px;color:var(--ink-faint);font-weight:500;}
+  .bar{height:6px;border-radius:6px;background:var(--line-soft);margin-top:9px;overflow:hidden;}
+  .bar i{display:block;height:100%;border-radius:6px;transition:width .4s ease;}
+
+  /* DIARY */
+  .diary-h{display:flex;align-items:center;justify-content:space-between;margin:24px 2px 12px;}
+  .diary-h h2{font-size:21px;font-weight:600;margin:0;letter-spacing:-.01em;}
+  .meal{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:13px;overflow:hidden;}
+  .meal-top{display:flex;align-items:center;gap:13px;padding:16px 18px;}
+  .meal-ico{width:38px;height:38px;border-radius:11px;background:var(--green-wash);display:grid;place-items:center;flex:none;}
+  .meal-ico svg{width:19px;height:19px;color:var(--green);}
+  .meal-info{flex:1;min-width:0;}
+  .meal-name{font-size:16.5px;font-weight:600;}
+  .meal-kcal{font-size:13px;color:var(--ink-faint);font-weight:500;margin-top:1px;}
+  .meal-add{width:34px;height:34px;border-radius:50%;background:var(--green-wash);display:grid;place-items:center;flex:none;transition:transform .12s,background .15s;}
+  .meal-add:active{transform:scale(.9);}
+  .meal-add svg{width:18px;height:18px;color:var(--green);}
+  .entries{border-top:1px solid var(--line-soft);}
+  .entry{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line-soft);}
+  .entry:last-child{border-bottom:none;}
+  .entry-info{flex:1;min-width:0;}
+  .entry-name{font-size:14.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .entry-meta{font-size:12px;color:var(--ink-faint);margin-top:1px;}
+  .entry-brand{font-size:12px;font-weight:400;color:var(--ink-faint);}
+  .usda-btn{width:100%;margin-top:12px;}
+  .usda-btn svg{width:17px;height:17px;}
+  .pf-source{font-size:11.5px;color:var(--ink-faint);text-align:right;margin-top:14px;}
+  .entry-kcal{font-size:14px;font-weight:600;color:var(--ink-soft);white-space:nowrap;}
+  .entry-x{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:var(--ink-faint);flex:none;}
+  .entry-x:active{background:var(--line);}
+
+  /* BOTTOM NAV */
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:50;background:rgba(250,246,238,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:8px 12px calc(8px + var(--safe-bottom));}
+  .navinner{max-width:520px;margin:0 auto;display:flex;justify-content:space-around;align-items:center;}
+  .navbtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 14px;color:var(--ink-faint);border-radius:14px;transition:color .15s;}
+  .navbtn svg{width:23px;height:23px;}
+  .navbtn span{font-size:10.5px;font-weight:600;letter-spacing:.01em;}
+  .navbtn.active{color:var(--green);}
+
+  /* GENERIC LIST ITEMS */
+  .listcard{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:16px;}
+  .row{display:flex;align-items:center;gap:13px;padding:15px 18px;border-bottom:1px solid var(--line-soft);width:100%;text-align:left;}
+  .row:last-child{border-bottom:none;}
+  .row-main{flex:1;min-width:0;}
+  .row-t{font-size:15.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row-s{font-size:12.5px;color:var(--ink-faint);margin-top:2px;}
+  .row-r{font-size:15px;font-weight:600;color:var(--green);white-space:nowrap;}
+  .chev{color:var(--ink-faint);flex:none;}
+  .tagm{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--protein);background:var(--protein-wash);padding:3px 7px;border-radius:6px;}
+
+  /* SEARCH */
+  .search{position:relative;margin-bottom:16px;}
+  .search input{width:100%;padding:14px 16px 14px 44px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);font-size:15px;color:var(--ink);outline:none;}
+  .search input:focus{border-color:var(--green-bright);}
+  .search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--ink-faint);}
+
+  /* BUTTONS */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:15px 20px;border-radius:14px;font-size:15.5px;font-weight:600;transition:transform .1s,opacity .15s;width:100%;}
+  .btn:active{transform:scale(.985);}
+  .btn-primary{background:var(--green);color:#fff;}
+  .btn-ghost{background:var(--card);color:var(--ink);box-shadow:var(--shadow);}
+  .btn-soft{background:var(--green-wash);color:var(--green);}
+  .btn-danger{background:var(--protein-wash);color:var(--danger);}
+  .btn svg{width:18px;height:18px;}
+  .btn-pair{display:flex;gap:10px;}
+
+  /* EMPTY STATE */
+  .empty{text-align:center;padding:40px 20px;color:var(--ink-faint);}
+  .empty svg{width:40px;height:40px;margin-bottom:12px;opacity:.5;}
+  .empty p{font-size:14px;margin:0;line-height:1.5;}
+
+  /* SHEET / MODAL */
+  .scrim{position:fixed;inset:0;background:rgba(35,35,31,.42);z-index:100;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(2px);}
+  .scrim.open{opacity:1;pointer-events:auto;}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:101;background:var(--bg);border-radius:26px 26px 0 0;max-width:520px;margin:0 auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);max-height:92vh;display:flex;flex-direction:column;padding-bottom:var(--safe-bottom);}
+  .sheet.open{transform:translateY(0);}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 12px;flex:none;}
+  .sheet-head .grab{position:absolute;left:50%;top:8px;transform:translateX(-50%);width:38px;height:4px;border-radius:4px;background:var(--line);}
+  .sheet-head h3{font-size:19px;font-weight:600;margin:0;letter-spacing:-.01em;}
+  .sheet-head button.x{width:34px;height:34px;border-radius:50%;background:var(--card);display:grid;place-items:center;box-shadow:var(--shadow);}
+  .sheet-head button.x svg{width:18px;height:18px;}
+  .sheet-head button.save{font-size:15px;font-weight:600;color:var(--green);padding:8px 4px;}
+  .sheet-body{overflow-y:auto;padding:4px 18px 24px;flex:1;}
+
+  /* FORM */
+  .field{margin-bottom:15px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:7px;letter-spacing:.01em;}
+  .field input,.field select{width:100%;padding:13px 15px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);outline:none;transition:border-color .15s;}
+  .field input:focus,.field select:focus{border-color:var(--green-bright);}
+  .field.req label::after{content:' *';color:var(--protein);}
+  .field-row{display:flex;gap:10px;}
+  .field-row .field{flex:1;}
+  .nutri-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  .nutri-grid .field{margin-bottom:0;}
+  .section-label{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin:22px 0 13px;}
+  .disclose{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line);margin-top:10px;font-size:14.5px;font-weight:600;color:var(--green);}
+  .fiber-toggle{background:none;border:none;padding:6px 0 0;font-size:12.5px;font-weight:600;color:var(--green);text-align:left;font-family:'Hanken Grotesk',sans-serif;}
+  .fiber-hint{font-size:11.5px;color:var(--amber);margin-top:8px;line-height:1.5;}
+  .el-note{font-size:11.5px;color:var(--ink-faint);margin-top:10px;line-height:1.5;}
+  .water-row{display:flex;gap:8px;align-items:center;}
+  .water-row input{flex:1 1 auto;min-width:0;width:auto;}
+  .water-row .water-unit{flex:0 0 120px;width:120px;min-width:0;}
+  .disclose svg{width:18px;height:18px;transition:transform .2s;}
+  .disclose.open svg{transform:rotate(180deg);}
+  .collapse{display:none;}
+  .collapse.open{display:block;}
+
+  /* PORTION SHEET */
+  .portion-food{text-align:center;margin-bottom:6px;}
+  .portion-food .pf-name{font-size:21px;font-weight:600;letter-spacing:-.01em;}
+  .portion-food .pf-sub{font-size:13px;color:var(--ink-faint);margin-top:3px;}
+  .qty-wrap{display:flex;align-items:center;justify-content:center;gap:18px;margin:24px 0 8px;}
+  .qty-btn{width:48px;height:48px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center;font-size:24px;color:var(--green);font-weight:400;}
+  .qty-btn:active{transform:scale(.92);}
+  .qty-input{width:130px;text-align:center;font-size:34px;font-weight:700;border:none;outline:none;background:none;color:var(--ink);font-family:'Hanken Grotesk',sans-serif;letter-spacing:-.02em;border-bottom:2px solid var(--line);padding-bottom:4px;}
+  .qty-input:focus{border-bottom-color:var(--green-bright);}
+  .qty-unit{font-size:16px;font-weight:600;color:var(--ink-soft);min-width:30px;text-align:left;}
+  .qty-unit-sel{font-family:'Hanken Grotesk',sans-serif;border:none;outline:none;background-color:transparent;-webkit-appearance:none;appearance:none;padding:2px 15px 2px 2px;background-repeat:no-repeat;background-position:right center;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236E6B61' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+  .qty-unit-sel:disabled{opacity:1;background-image:none;padding-right:2px;}
+  .serving-pick{text-align:center;font-size:13.5px;color:var(--ink-soft);margin-bottom:22px;}
+  .meal-select{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:18px 0 24px;}
+  .meal-chip{padding:9px 16px;border-radius:30px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  .meal-chip.sel{background:var(--green);color:#fff;}
+  .time-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 24px;}
+  .time-label{font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  .time-opt{font-weight:500;color:var(--ink-faint);}
+  .time-ctl{display:flex;align-items:center;gap:8px;}
+  .time-input{border:none;background:var(--line-soft);border-radius:12px;padding:8px 12px;font-family:'Hanken Grotesk',sans-serif;font-size:14.5px;font-weight:700;color:var(--ink-faint);}
+  .time-input.accepted{color:var(--ink);background:var(--green-wash);}
+  .time-q{width:26px;height:26px;border-radius:50%;background:var(--line-soft);color:var(--ink-soft);font-weight:700;font-size:13px;flex:none;}
+  .time-ok{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--card);color:var(--green-bright);flex:none;border:1.5px solid var(--green-bright);}
+  .time-ok svg{width:16px;height:16px;}
+  .time-ok.on{background:var(--green-bright);color:#fff;}
+  .seg{display:flex;gap:6px;background:var(--line-soft);border-radius:30px;padding:4px;margin-bottom:14px;}
+  .seg button{flex:1;padding:9px 0;border-radius:24px;background:transparent;font-size:13.5px;font-weight:600;color:var(--ink-soft);font-family:'Hanken Grotesk',sans-serif;}
+  .seg button.sel{background:var(--card);color:var(--green);box-shadow:var(--shadow);}
+  .pf-ings{margin-top:8px;font-size:12.5px;color:var(--ink-soft);line-height:1.7;}
+  .nutprev{display:flex;justify-content:space-around;text-align:center;background:var(--card);border-radius:16px;padding:16px 8px;box-shadow:var(--shadow);margin-bottom:20px;}
+  .nutprev div .npv{font-size:18px;font-weight:700;font-family:'Hanken Grotesk',sans-serif;letter-spacing:-.02em;}
+  .nutprev div .npl{font-size:11px;color:var(--ink-faint);font-weight:600;margin-top:2px;}
+
+  /* GOALS */
+  .goal-row{display:flex;align-items:center;justify-content:space-between;padding:17px 18px;border-bottom:1px solid var(--line-soft);}
+  .goal-row:last-child{border-bottom:none;}
+  .goal-row .gl{font-size:16px;font-weight:600;}
+  .goal-row .gl small{font-size:13px;color:var(--ink-faint);font-weight:500;margin-left:6px;}
+  .goal-input{display:flex;align-items:center;gap:6px;}
+  .goal-input input{width:84px;text-align:right;padding:10px 12px;border-radius:11px;border:1.5px solid var(--line);font-size:16px;font-weight:600;color:var(--green);outline:none;}
+  .goal-input input:focus{border-color:var(--green-bright);}
+  .goal-input .pct{font-size:13px;color:var(--ink-faint);font-weight:600;width:42px;text-align:right;}
+  .goalnote{font-size:13px;color:var(--ink-soft);padding:14px 18px;line-height:1.5;background:var(--green-wash);border-radius:13px;margin-top:6px;}
+  .goalnote.warn{background:var(--protein-wash);color:var(--danger);}
+
+  /* PROGRESS */
+  .chart{display:flex;align-items:flex-end;gap:5px;height:160px;padding:10px 4px 0;}
+  .chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
+  .chart .colbar{width:100%;max-width:22px;border-radius:5px 5px 3px 3px;background:var(--green-wash);position:relative;min-height:3px;transition:height .4s;}
+  .chart .colbar.has{background:var(--green-bright);}
+  .chart .colbar.over{background:var(--protein);}
+  .chart .cl{font-size:9.5px;color:var(--ink-faint);font-weight:600;}
+  .stat-grid{display:flex;gap:12px;margin-bottom:16px;}
+  .stat{flex:1;background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;text-align:center;}
+  .stat .sv{font-size:24px;font-weight:700;letter-spacing:-.02em;font-family:'Hanken Grotesk',sans-serif;}
+  .stat .sl{font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-top:3px;}
+
+  .mini-note{font-size:12px;color:var(--ink-faint);text-align:center;line-height:1.5;padding:8px 20px 0;}
+  .ab{font-size:13px;color:var(--ink-soft);line-height:1.6;}
+  .ab b{color:var(--ink);font-weight:600;}
+  .toast{position:fixed;bottom:calc(96px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:18px;font-size:14px;font-weight:600;z-index:200;opacity:0;transition:all .3s;box-shadow:0 8px 24px rgba(0,0,0,.2);pointer-events:none;white-space:normal;text-align:center;line-height:1.4;max-width:min(420px, calc(100vw - 32px));}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .comp-list{margin-bottom:8px;}
+  .comp{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line-soft);}
+  .comp-info{flex:1;min-width:0;}
+
+  /* SCANNER */
+  .btn-scan{background:var(--ink);color:var(--bg);}
+  #scanRegion{width:100%;border-radius:18px;overflow:hidden;background:#000;min-height:240px;position:relative;}
+  #scanRegion video{width:100%!important;display:block;border-radius:18px;}
+  .scan-frame{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center;}
+  .scan-frame .box{width:78%;height:120px;border:2px solid rgba(255,255,255,.9);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.35);}
+  .scan-status{text-align:center;font-size:14px;color:var(--ink-soft);padding:16px 6px 4px;line-height:1.5;}
+  .scan-or{display:flex;align-items:center;gap:12px;color:var(--ink-faint);font-size:12px;font-weight:600;margin:18px 0;}
+  .scan-or::before,.scan-or::after{content:'';flex:1;height:1px;background:var(--line);}
+  .manual-row{display:flex;gap:9px;}
+  .manual-row input{flex:1;padding:13px 15px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);outline:none;}
+  .manual-row input:focus{border-color:var(--green-bright);}
+  .manual-row button{flex:none;padding:0 20px;border-radius:13px;background:var(--green);color:#fff;font-weight:600;}
+  .spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== TODAY ===== -->
+  <section class="screen active" id="s-today">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h0a2 2 0 0 0 2-2V2"/><path d="M5 2v20"/><path d="M19 2v20"/><path d="M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg></div>
+        <h1 class="display">Plate</h1>
+      </div>
+      <button class="meal-add" onclick="openPicker('breakfast')" title="Quick add" style="width:38px;height:38px;background:var(--green);"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+
+    <div class="datehead">
+      <div class="dlabel display" id="dateLabel">Today</div>
+      <button class="today-pill" id="todayPill" onclick="goToday()" style="display:none;">Jump to today</button>
+    </div>
+    <div class="weekstrip" id="weekstrip"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="cal-wrap">
+        <div class="ring">
+          <svg width="122" height="122" viewBox="0 0 122 122">
+            <circle cx="61" cy="61" r="52" fill="none" stroke="var(--line-soft)" stroke-width="11"/>
+            <circle id="calRing" cx="61" cy="61" r="52" fill="none" stroke="var(--green)" stroke-width="11" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+          </svg>
+          <div class="center">
+            <div class="big display" id="calLeft">0</div>
+            <div class="sub" id="calLeftLbl">cal left</div>
+          </div>
+        </div>
+        <div class="cal-side">
+          <div class="cal-row"><span class="k">Goal</span><span class="v" id="calGoal">0</span></div>
+          <div class="cal-row"><span class="k">Food</span><span class="v" id="calFood">0</span></div>
+          <div class="cal-row"><span class="k">Remaining</span><span class="v left" id="calRem">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="macros" id="macroRow"></div>
+    </div>
+
+    <div class="diary-h"><h2 class="display">Diary</h2></div>
+    <div id="diary"></div>
+  </section>
+
+  <!-- ===== FOODS ===== -->
+  <section class="screen" id="s-foods">
+    <div class="screen-title display">Foods</div>
+    <div class="btn-pair" style="margin-bottom:16px;">
+      <button class="btn btn-primary" onclick="openCreateFood()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New Food</button>
+      <button class="btn btn-soft" onclick="openCreateMeal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>New Meal</button>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input type="text" id="foodSearch" placeholder="Search your foods & meals" oninput="renderFoods()">
+    </div>
+    <div class="seg" id="foodsSeg">
+      <button id="segFoods" class="sel" onclick="setFoodsTab('foods')">Foods</button>
+      <button id="segMeals" onclick="setFoodsTab('meals')">Meals</button>
+    </div>
+    <div id="foodsList"></div>
+  </section>
+
+  <!-- ===== PROGRESS ===== -->
+  <section class="screen" id="s-progress">
+    <div class="screen-title display">Progress</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="sv display" id="statAvg">0</div><div class="sl">Avg cal / logged day</div></div>
+      <div class="stat"><div class="sv display" id="statStreak">0</div><div class="sl">Day streak</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Last 14 Days</h3></div>
+      <div class="chart" id="chart"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h3>Averages (logged days)</h3></div>
+      <div class="macros" id="avgMacros"></div>
+    </div>
+  </section>
+
+  <!-- ===== SETTINGS ===== -->
+  <section class="screen" id="s-settings">
+    <div class="screen-title display">Settings</div>
+
+    <div class="section-label" style="margin-top:0;">Cloud Sync</div>
+    <div class="card" id="syncBox" style="padding:18px;"></div>
+
+    <div class="section-label">Daily Goals</div>
+    <div class="listcard">
+      <div class="goal-row">
+        <div class="gl">Calories</div>
+        <div class="goal-input"><input type="number" inputmode="numeric" id="gCal" onchange="saveGoals()" oninput="updateGoalPcts()"><span style="font-size:13px;color:var(--ink-faint);font-weight:600;">cal</span></div>
+      </div>
+      <div class="goal-row">
+        <div class="gl">Carbs</div>
+        <div class="goal-input"><span class="pct" id="pCarb">0%</span><input type="number" inputmode="numeric" id="gCarb" onchange="saveGoals()" oninput="updateGoalPcts()"><span style="font-size:13px;color:var(--ink-faint);font-weight:600;">g</span></div>
+      </div>
+      <div class="goal-row">
+        <div class="gl">Protein</div>
+        <div class="goal-input"><span class="pct" id="pProtein">0%</span><input type="number" inputmode="numeric" id="gProtein" onchange="saveGoals()" oninput="updateGoalPcts()"><span style="font-size:13px;color:var(--ink-faint);font-weight:600;">g</span></div>
+      </div>
+      <div class="goal-row">
+        <div class="gl">Fat</div>
+        <div class="goal-input"><span class="pct" id="pFat">0%</span><input type="number" inputmode="numeric" id="gFat" onchange="saveGoals()" oninput="updateGoalPcts()"><span style="font-size:13px;color:var(--ink-faint);font-weight:600;">g</span></div>
+      </div>
+    </div>
+    <div class="goalnote" id="goalNote"></div>
+
+    <div class="section-label">Food Search</div>
+    <div class="card" id="usdaBox" style="padding:18px;"></div>
+
+    <div class="section-label">Your Data</div>
+    <div class="ab card" style="padding:18px;">
+      Everything lives on this device only — nothing is sent anywhere. Back up regularly and before switching phones.
+      <div class="btn-pair" style="margin-top:16px;">
+        <button class="btn btn-soft" onclick="exportData()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 8l5-5 5 5M12 3v12"/></svg>Import</button>
+      </div>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(event)">
+    </div>
+    <button class="btn btn-danger" onclick="confirmReset()" style="margin-bottom:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Erase all data</button>
+
+    <div class="section-label">About</div>
+    <div class="ab card" style="padding:18px;">
+      <b>Plate</b> is yours. It runs entirely on your device with no account, no server, and no connection to any AI or company. It will keep working as long as you keep the file — and your backups are how you carry it to a new phone or share it with a friend.
+    </div>
+    <div class="mini-note" id="buildNote">v1 · made for you</div>
+  </section>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav>
+  <div class="navinner">
+    <button class="navbtn active" data-s="today" onclick="nav('today')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>Today</span></button>
+    <button class="navbtn" data-s="foods" onclick="nav('foods')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg><span>Foods</span></button>
+    <button class="navbtn" data-s="progress" onclick="nav('progress')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M8 16V9M13 16V6M18 16v-4"/></svg><span>Progress</span></button>
+    <button class="navbtn" data-s="settings" onclick="nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg><span>Settings</span></button>
+  </div>
+</nav>
+
+<!-- ===== PICKER SHEET (choose food to log) ===== -->
+<div class="scrim" id="pickerScrim" onclick="cancelPicker()"></div>
+<div class="sheet" id="pickerSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="cancelPicker()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3 id="pickerTitle">Add to Breakfast</h3>
+    <span style="width:34px"></span>
+  </div>
+  <div class="sheet-body">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input type="text" id="pickSearch" placeholder="Search foods & meals" oninput="renderPicker()">
+    </div>
+    <button class="btn btn-scan" id="pickScanBtn" onclick="openScan('log')" style="margin-bottom:10px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode</button>
+    <button class="btn btn-soft" id="pickCreateBtn" onclick="createFoodFromPicker()" style="margin-bottom:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Create a new food</button>
+    <div id="pickerList"></div>
+  </div>
+</div>
+
+<!-- ===== PORTION SHEET ===== -->
+<!-- ===== USDA FOOD DATABASE SEARCH SHEET ===== -->
+<div class="scrim" id="usdaScrim" onclick="closeSheet('usda')"></div>
+<div class="sheet" id="usdaSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeSheet('usda')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3>Food database</h3>
+    <span style="width:34px"></span>
+  </div>
+  <div class="sheet-body">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input type="text" id="usdaSearch" placeholder="Search foods (e.g. banana)" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')runUsdaQuery()">
+    </div>
+    <button class="btn btn-soft" onclick="runUsdaQuery()" style="margin-bottom:12px;">Search</button>
+    <div id="usdaStatus" style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-bottom:8px;"></div>
+    <div id="usdaList"></div>
+    <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:14px;">Results come from USDA FoodData Central (public domain). Always double-check the values before saving — you can edit anything.</div>
+  </div>
+</div>
+
+<div class="scrim" id="portionScrim" onclick="closeSheet('portion')"></div>
+<div class="sheet" id="portionSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeSheet('portion')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3 id="portionTitle">Log Food</h3>
+    <button class="save" id="portionSave">Add</button>
+  </div>
+  <div class="sheet-body">
+    <div class="portion-food">
+      <div class="pf-name" id="pName"></div>
+      <div class="pf-sub" id="pServingDesc"></div>
+      <div class="pf-ings" id="pIngredients"></div>
+    </div>
+    <div class="qty-wrap">
+      <button class="qty-btn" onclick="bumpQty(-1)">−</button>
+      <input class="qty-input" id="pQty" type="text" inputmode="decimal" value="1" oninput="renderPortionPreview()">
+      <select class="qty-unit qty-unit-sel" id="pQtyUnit" onchange="onPortionUnitChange()"></select>
+      <button class="qty-btn" onclick="bumpQty(1)">+</button>
+    </div>
+    <div class="serving-pick" id="pServingUnit"></div>
+    <div class="meal-select" id="pMealSelect"></div>
+    <div class="time-row" id="pTimeRow">
+      <span class="time-label">Time eaten <span class="time-opt">(optional)</span></span>
+      <div class="time-ctl">
+        <input type="time" id="pTime" class="time-input">
+        <button type="button" class="time-q" id="pTimeQ" onclick="explainTime()" aria-label="What is this?">?</button>
+        <button type="button" class="time-ok" id="pTimeOk" onclick="toggleTimeAccept()" aria-label="Save this time">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="nutprev" id="pNutPrev"></div>
+    <div class="pf-source" id="pSource"></div>
+    <button class="btn btn-danger" id="portionDelete" onclick="deleteEditingEntry()" style="display:none;">Remove from diary</button>
+  </div>
+</div>
+
+<!-- ===== CREATE / EDIT FOOD SHEET ===== -->
+<div class="scrim" id="foodScrim" onclick="closeFoodSheet()"></div>
+<div class="sheet" id="foodSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeFoodSheet()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3 id="foodSheetTitle">Create Food</h3>
+    <button class="save" onclick="saveFood()">Save</button>
+  </div>
+  <div class="sheet-body">
+    <button class="btn btn-scan" onclick="openScan('library')" style="margin-bottom:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M6 12h12"/></svg>Scan a barcode to fill this in</button>
+    <div class="field"><label>Name</label><input type="text" id="fName" placeholder="e.g. Greek yogurt"></div>
+    <div class="field"><label>Brand (optional)</label><input type="text" id="fBrand" placeholder="e.g. Fage"></div>
+    <div class="field-row">
+      <div class="field"><label>Serving size</label><input type="text" inputmode="decimal" step="any" id="fServQty" placeholder="1" value="1" onchange="onServingSizeChange()"></div>
+      <div class="field"><label>Unit</label>
+        <select id="fServUnit" onchange="onUnitChange()"></select>
+        <input type="text" id="fServUnitCustom" placeholder="Type a unit (e.g. scoop)" style="display:none;margin-top:8px;">
+      </div>
+    </div>
+    <div class="section-label">Nutrition per serving</div>
+    <div class="nutri-grid">
+      <div class="field req"><label>Calories</label><input type="text" inputmode="decimal" step="any" id="n_calories" placeholder="0"></div>
+      <div class="field"><label>Total Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_totalFat" placeholder="0"></div>
+      <div class="field"><label>Saturated Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_satFat"></div>
+      <div class="field"><label>Trans Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_transFat"></div>
+      <div class="field"><label>Polyunsaturated Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_polyFat"></div>
+      <div class="field"><label>Monounsaturated Fat (g)</label><input type="text" inputmode="decimal" step="any" id="n_monoFat"></div>
+      <div class="field"><label>Cholesterol (mg)</label><input type="text" inputmode="decimal" step="any" id="n_cholesterol"></div>
+      <div class="field"><label>Sodium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_sodium"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Total Carbohydrate (g)</label><input type="text" inputmode="decimal" step="any" id="n_totalCarbs" placeholder="0"></div>
+      <div class="field" style="grid-column:1/-1;"><label>Dietary Fiber (g)</label><input type="text" inputmode="decimal" step="any" id="n_fiber">
+        <button type="button" class="fiber-toggle" id="fiberToggle" onclick="toggleFiberBreakdown()">+ Break into soluble / insoluble</button>
+        <div id="fiberBreak" style="display:none;">
+          <div class="nutri-grid" style="margin-top:8px;">
+            <div class="field"><label>Soluble Fiber (g)</label><input type="text" inputmode="decimal" step="any" id="n_fiberSoluble" oninput="onFiberSubInput()"></div>
+            <div class="field"><label>Insoluble Fiber (g)</label><input type="text" inputmode="decimal" step="any" id="n_fiberInsoluble" oninput="onFiberSubInput()"></div>
+          </div>
+          <div class="fiber-hint" id="fiberHint"></div>
+        </div>
+      </div>
+      <div class="field"><label>Total Sugars (g)</label><input type="text" inputmode="decimal" step="any" id="n_sugars"></div>
+      <div class="field"><label>Added Sugars (g)</label><input type="text" inputmode="decimal" step="any" id="n_addedSugars"></div>
+      <div class="field"><label>Sugar Alcohols (g)</label><input type="text" inputmode="decimal" step="any" id="n_sugarAlcohols"></div>
+      <div class="field"><label>Protein (g)</label><input type="text" inputmode="decimal" step="any" id="n_protein" placeholder="0"></div>
+    </div>
+
+    <button class="disclose" id="moreBtn" onclick="toggleMore()">Vitamins &amp; minerals<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="collapse" id="moreNutrients">
+      <div class="nutri-grid" style="margin-top:4px;">
+        <div class="field"><label>Vitamin D (%)</label><input type="text" inputmode="decimal" step="any" id="n_vitD"></div>
+        <div class="field"><label>Calcium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_calcium"></div>
+        <div class="field"><label>Iron (%)</label><input type="text" inputmode="decimal" step="any" id="n_iron"></div>
+        <div class="field"><label>Potassium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_potassium"></div>
+        <div class="field"><label>Vitamin A (%)</label><input type="text" inputmode="decimal" step="any" id="n_vitA"></div>
+        <div class="field"><label>Vitamin C (%)</label><input type="text" inputmode="decimal" step="any" id="n_vitC"></div>
+      </div>
+    </div>
+
+    <button class="disclose" id="elBtn" onclick="toggleEl()">Electrolytes<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="collapse" id="elGroup">
+      <div class="nutri-grid" style="margin-top:4px;">
+        <div class="field"><label>Sodium (mg)</label><input type="text" inputmode="decimal" step="any" id="m_sodium"></div>
+        <div class="field"><label>Potassium (mg)</label><input type="text" inputmode="decimal" step="any" id="m_potassium"></div>
+        <div class="field"><label>Calcium (mg)</label><input type="text" inputmode="decimal" step="any" id="m_calcium"></div>
+        <div class="field"><label>Magnesium (mg)</label><input type="text" inputmode="decimal" step="any" id="n_magnesium"></div>
+        <div class="field"><label>Chloride (mg)</label><input type="text" inputmode="decimal" step="any" id="n_chloride"></div>
+        <div class="field"><label>Phosphorus (mg)</label><input type="text" inputmode="decimal" step="any" id="n_phosphorus"></div>
+        <div class="field"><label>Bicarbonate (mg)</label><input type="text" inputmode="decimal" step="any" id="n_bicarbonate"></div>
+      </div>
+      <div class="field" style="margin-top:12px;"><label>Water</label>
+        <div class="water-row">
+          <input type="text" inputmode="decimal" step="any" id="wAmt" placeholder="0">
+          <select id="wUnit" class="water-unit">
+            <option value="floz">fl oz</option>
+            <option value="cup">cups</option>
+            <option value="ml">mL</option>
+            <option value="l">L</option>
+          </select>
+        </div>
+      </div>
+      <div class="el-note">Sodium, potassium, and calcium mirror the fields above — editing either place keeps both in sync. Water counts toward your daily hydration.</div>
+    </div>
+    <button class="disclose" id="microBtn" onclick="toggleMicro()">Micronutrients<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></button>
+    <div class="collapse" id="microGroup">
+      <div class="nutri-grid" id="microGrid" style="margin-top:4px;"></div>
+      <div class="el-note">The full vitamin and trace-mineral panel. Leave any blank — they only roll up to your daily totals when you enter a value.</div>
+    </div>
+    <button class="btn btn-danger" id="foodDeleteBtn" onclick="deleteFood()" style="margin-top:18px;display:none;">Delete this food</button>
+  </div>
+</div>
+
+<!-- ===== CREATE / EDIT MEAL SHEET ===== -->
+<div class="scrim" id="mealScrim" onclick="closeSheet('meal')"></div>
+<div class="sheet" id="mealSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeSheet('meal')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3 id="mealSheetTitle">Create Meal</h3>
+    <button class="save" onclick="saveMeal()">Save</button>
+  </div>
+  <div class="sheet-body">
+    <div class="field"><label>Meal name</label><input type="text" id="mName" placeholder="e.g. My usual breakfast"></div>
+    <div class="section-label">Ingredients</div>
+    <div class="comp-list" id="mealComps"></div>
+    <button class="btn btn-soft" onclick="openPickerForMeal()" style="margin-bottom:16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add ingredient</button>
+    <div class="nutprev" id="mealNutPrev"></div>
+    <button class="btn btn-danger" id="mealDeleteBtn" onclick="deleteMeal()" style="margin-top:4px;display:none;">Delete this meal</button>
+  </div>
+</div>
+
+<!-- ===== BARCODE SCANNER SHEET ===== -->
+<div class="scrim" id="scanScrim" onclick="closeScan()"></div>
+<div class="sheet" id="scanSheet">
+  <div class="sheet-head"><div class="grab"></div>
+    <button class="x" onclick="closeScan()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <h3>Scan Barcode</h3>
+    <span style="width:34px"></span>
+  </div>
+  <div class="sheet-body">
+    <div id="scanRegion"><div class="scan-frame"><div class="box"></div></div></div>
+    <div class="scan-status" id="scanStatus">Point your camera at a product barcode.</div>
+    <button class="btn btn-primary" id="photoBtn" onclick="document.getElementById('barcodePhoto').click()" style="margin-top:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Take a photo of the barcode</button>
+    <input type="file" id="barcodePhoto" accept="image/*" capture="environment" style="display:none" onchange="onPhotoChosen(event)">
+    <div id="scanFileRegion" style="display:none"></div>
+    <div class="scan-or">OR ENTER IT MANUALLY</div>
+    <div class="manual-row">
+      <input type="text" id="manualBarcode" inputmode="numeric" placeholder="Barcode number (e.g. 3017624010701)">
+      <button onclick="lookupBarcode(document.getElementById('manualBarcode').value.trim())">Look&nbsp;up</button>
+    </div>
+    <div class="scan-status" style="font-size:12px;color:var(--ink-faint);margin-top:14px;">Nutrition comes from Open Food Facts, a free community database. Always double-check the values before logging — you can edit anything.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ============ DATA LAYER ============ */
+const KEY='plate.data.v1';
+const MEALS=['breakfast','lunch','dinner','snacks'];
+const MEAL_LABEL={breakfast:'Breakfast',lunch:'Lunch',dinner:'Dinner',snacks:'Snacks'};
+const APP_BUILD='2026-06-02.10';
+const NUT_FIELDS=['calories','protein','totalCarbs','totalFat','satFat','polyFat','monoFat','transFat','cholesterol','sodium','potassium','fiber','fiberSoluble','fiberInsoluble','sugars','addedSugars','sugarAlcohols','vitA','vitC','calcium','iron','vitD','magnesium','chloride','phosphorus','bicarbonate','water','vitE','vitK','b1','b2','b3','b5','b6','b7','b9','b12','choline','zinc','copper','manganese','selenium','iodine','chromium','molybdenum'];
+// Micronutrient panel (vitamins + trace minerals beyond the FDA-label set already in "Vitamins & minerals"
+// and the electrolytes). [internalKey, label, unit] — fields are generated into the Micronutrients section.
+const MICROS=[
+  ['vitE','Vitamin E','mg'],['vitK','Vitamin K','mcg'],
+  ['b1','Thiamin (B1)','mg'],['b2','Riboflavin (B2)','mg'],['b3','Niacin (B3)','mg'],
+  ['b5','Pantothenic acid (B5)','mg'],['b6','Vitamin B6','mg'],['b7','Biotin (B7)','mcg'],
+  ['b9','Folate (B9)','mcg'],['b12','Vitamin B12','mcg'],['choline','Choline','mg'],
+  ['zinc','Zinc','mg'],['copper','Copper','mg'],['manganese','Manganese','mg'],
+  ['selenium','Selenium','mcg'],['iodine','Iodine','mcg'],['chromium','Chromium','mcg'],['molybdenum','Molybdenum','mcg']
+];
+const MICRO_KEYS=MICROS.map(m=>m[0]);
+// internalKey -> Health Data Spec daily registry key
+const MICRO_DAILY=[['vitE','vit_e_mg'],['vitK','vit_k_mcg'],['b1','thiamin_mg'],['b2','riboflavin_mg'],['b3','niacin_mg'],['b5','pantothenic_mg'],['b6','vit_b6_mg'],['b7','biotin_mcg'],['b9','folate_mcg'],['b12','vit_b12_mcg'],['choline','choline_mg'],['zinc','zinc_mg'],['copper','copper_mg'],['manganese','manganese_mg'],['selenium','selenium_mcg'],['iodine','iodine_mcg'],['chromium','chromium_mcg'],['molybdenum','molybdenum_mcg']];
+// Water entry: any liquid unit -> stored canonically in fl oz (matches spec water_oz). [value, label, factor->floz]
+const WATER_UNITS=[['floz','fl oz',1],['cup','cups',8],['ml','mL',0.0338140227],['l','L',33.8140227]];
+function toFlOz(v,u){const r=WATER_UNITS.find(x=>x[0]===u);return r?v*r[2]:v;}
+
+let DB=load();
+function blankDB(){return{goals:{calories:2000,carbs:200,protein:150,fat:60},foods:{},meals:{},log:{},updatedAt:''};}
+function load(){
+  try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);return Object.assign(blankDB(),d);}}catch(e){console.warn(e);}
+  return blankDB();
+}
+function save(opts){
+  opts=opts||{};
+  if(!opts.keepStamp) DB.updatedAt=new Date().toISOString();
+  try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast('Could not save — storage full?');}
+  if(!opts.noPush && typeof schedulePush==='function') schedulePush();
+}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+
+/* ============ DATE ============ */
+let selDate=todayStr();
+function todayStr(){const d=new Date();return ymd(d);}
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function parseYmd(s){const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+function fmtDate(s){
+  const d=parseYmd(s),t=parseYmd(todayStr());
+  const diff=Math.round((d-t)/86400000);
+  if(diff===0)return'Today';if(diff===-1)return'Yesterday';if(diff===1)return'Tomorrow';
+  return d.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
+}
+
+/* ============ NUTRITION MATH ============ */
+function foodNut(food,qty){const o={};NUT_FIELDS.forEach(f=>o[f]=(Number(food.nut[f])||0)*qty);return o;}
+function mealNut(meal,qty){
+  const o={};NUT_FIELDS.forEach(f=>o[f]=0);
+  (meal.comps||[]).forEach(c=>{const food=DB.foods[c.foodId];if(food){const n=foodNut(food,c.qty);NUT_FIELDS.forEach(f=>o[f]+=n[f]);}});
+  NUT_FIELDS.forEach(f=>o[f]*=qty);
+  return o;
+}
+function entryNut(e){
+  if(e.type==='meal'){const m=DB.meals[e.refId];return m?mealNut(m,e.qty):zero();}
+  const f=DB.foods[e.refId];return f?foodNut(f,e.qty):zero();
+}
+function zero(){const o={};NUT_FIELDS.forEach(f=>o[f]=0);return o;}
+function refName(e){if(e.type==='meal'){const m=DB.meals[e.refId];return m?m.name:'(deleted)';}const f=DB.foods[e.refId];return f?f.name:'(deleted)';}
+function dayTotals(date){
+  const day=DB.log[date];const t=zero();if(!day)return t;
+  MEALS.forEach(m=>(day[m]||[]).forEach(e=>{const n=entryNut(e);NUT_FIELDS.forEach(f=>t[f]+=n[f]);}));
+  return t;
+}
+function r0(n){return Math.round(n);} 
+function r1(n){return Math.round(n*10)/10;}
+
+/* ============ NAV ============ */
+function nav(s){
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('s-'+s).classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.s===s));
+  window.scrollTo(0,0);
+  if(s==='foods')renderFoods();
+  if(s==='progress')renderProgress();
+  if(s==='settings')renderGoals();
+}
+
+/* ============ TODAY RENDER ============ */
+function renderToday(){
+  renderWeek();
+  document.getElementById('dateLabel').textContent=fmtDate(selDate);
+  document.getElementById('todayPill').style.display=selDate===todayStr()?'none':'block';
+  const t=dayTotals(selDate),g=DB.goals;
+  // calories
+  const food=r0(t.calories),goal=r0(g.calories),rem=goal-food;
+  document.getElementById('calGoal').textContent=goal.toLocaleString();
+  document.getElementById('calFood').textContent=food.toLocaleString();
+  const remEl=document.getElementById('calRem');
+  remEl.textContent=rem.toLocaleString();
+  remEl.className='v '+(rem<0?'over':'left');
+  const left=document.getElementById('calLeft');
+  left.textContent=Math.abs(rem).toLocaleString();
+  document.getElementById('calLeftLbl').textContent=rem<0?'cal over':'cal left';
+  const pct=goal>0?Math.min(food/goal,1):0;
+  const C=2*Math.PI*52;
+  const ring=document.getElementById('calRing');
+  ring.style.strokeDashoffset=C*(1-pct);
+  ring.setAttribute('stroke',rem<0?'var(--danger)':'var(--green)');
+  // macros
+  const defs=[['Carbs','totalCarbs','carbs','var(--carb)'],['Protein','protein','protein','var(--protein)'],['Fat','totalFat','fat','var(--fat)']];
+  document.getElementById('macroRow').innerHTML=defs.map(([lbl,key,gkey,col])=>{
+    const v=r0(t[key]),goal=r0(g[gkey]),p=goal>0?Math.min(v/goal,1)*100:0;
+    return `<div class="macro"><div class="ml"><span class="dot" style="background:${col}"></span>${lbl}</div>
+      <div class="mv">${v}<span> / ${goal}g</span></div>
+      <div class="bar"><i style="width:${p}%;background:${col}"></i></div></div>`;
+  }).join('');
+  renderDiary();
+}
+function renderWeek(){
+  const sel=parseYmd(selDate);
+  const start=new Date(sel);start.setDate(sel.getDate()-sel.getDay());
+  const dn=['S','M','T','W','T','F','S'];
+  let h='';
+  for(let i=0;i<7;i++){
+    const d=new Date(start);d.setDate(start.getDate()+i);
+    const ds=ymd(d);
+    const isToday=ds===todayStr(),isSel=ds===selDate;
+    const logged=DB.log[ds]&&MEALS.some(m=>(DB.log[ds][m]||[]).length);
+    h+=`<button class="day${isSel?' sel':''}${isToday?' istoday':''}${logged?' logged':''}" onclick="selectDate('${ds}')">
+      <span class="dn">${dn[i]}</span><span class="dd">${d.getDate()}</span></button>`;
+  }
+  document.getElementById('weekstrip').innerHTML=h;
+}
+function selectDate(ds){selDate=ds;renderToday();}
+function goToday(){selDate=todayStr();renderToday();}
+
+function renderDiary(){
+  const day=DB.log[selDate]||{};
+  document.getElementById('diary').innerHTML=MEALS.map(m=>{
+    const entries=day[m]||[];
+    let kcal=0;entries.forEach(e=>kcal+=entryNut(e).calories);
+    const ordered=entries.map((e,i)=>({e,i})).sort((a,b)=>{const ta=a.e.time||'99:99',tb=b.e.time||'99:99';return ta<tb?-1:ta>tb?1:a.i-b.i;});
+    const rows=ordered.map(({e,i})=>{
+      const n=entryNut(e);
+      const br=entryBrand(e);
+      return `<div class="entry" onclick="editEntry('${m}',${i})">
+        <div class="entry-info"><div class="entry-name">${esc(refName(e))}${br?` <span class="entry-brand">${esc(br)}</span>`:''}</div>
+        <div class="entry-meta">${esc(entryAmountText(e))}${e.time?` · ${esc(fmtTime(e.time))}`:''}</div></div>
+        <div class="entry-kcal">${r0(n.calories)}</div>
+        <button class="entry-x" onclick="event.stopPropagation();removeEntry('${m}',${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>`;
+    }).join('');
+    return `<div class="meal">
+      <div class="meal-top">
+        <div class="meal-ico">${mealIcon(m)}</div>
+        <div class="meal-info"><div class="meal-name">${MEAL_LABEL[m]}</div>
+        <div class="meal-kcal">${kcal?r0(kcal)+' cal':'Nothing logged yet'}</div></div>
+        <button class="meal-add" onclick="openPicker('${m}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      ${entries.length?`<div class="entries">${rows}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function entryAmountText(e){
+  if(e.type==='meal'){const q=e.qty;return fmtQty(q)+' '+pluralizeUnit('serving',q);}
+  const f=DB.foods[e.refId];
+  const amt=(e.amt!=null)?e.amt:(e.qty*((f&&f.servQty)||1));
+  const unit=e.unit||(f&&f.servUnit)||'serving';
+  return fmtAmt(amt)+' '+pluralizeUnit(unit,amt);
+}
+function fmtQty(q){return Number.isInteger(q)?q:r1(q);}
+function fmtAmt(v){return Number.isInteger(v)?v:Math.round(v*100)/100;}
+function mealIcon(m){
+  const ic={
+    breakfast:'<path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/>',
+    lunch:'<path d="M3 11h18M5 11a7 7 0 0 1 14 0M3 16h18M4 11v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>',
+    dinner:'<path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/>',
+    snacks:'<path d="M12 2a10 10 0 1 0 10 10A4 4 0 0 1 18 8a4 4 0 0 1-4-4 2 2 0 0 0-2-2Z"/><circle cx="9" cy="13" r="1"/><circle cx="14" cy="16" r="1"/>'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ic[m]}</svg>`;
+}
+function removeEntry(m,i){DB.log[selDate][m].splice(i,1);save();renderToday();toast('Removed');}
+
+/* ============ PICKER ============ */
+let pickerMeal='breakfast',pickerMode='log';
+function openPicker(m){pickerMeal=m;pickerMode='log';document.getElementById('pickerTitle').textContent='Add to '+MEAL_LABEL[m];document.getElementById('pickSearch').value='';setPickerExtras(true);renderPicker();openSheet('picker');}
+function openPickerForMeal(){pickerMode='meal';closeSheet('meal');document.getElementById('pickerTitle').textContent='Add ingredient';document.getElementById('pickSearch').value='';setPickerExtras(false);document.getElementById('pickCreateBtn').style.display='';renderPicker();openSheet('picker');}
+function setPickerExtras(show){const s=document.getElementById('pickScanBtn'),c=document.getElementById('pickCreateBtn');if(s)s.style.display=show?'':'none';if(c)c.style.display=show?'':'none';}
+// "Create a new food" from the picker: in meal mode, return to the meal with the new food added.
+function createFoodFromPicker(){
+  if(pickerMode==='meal'){openCreateFood(false);pendingMealAfterSave=true;}
+  else{openCreateFood(true);}
+}
+function cancelPicker(){closeSheet('picker');if(pickerMode==='meal')openSheet('meal');}
+function renderPicker(){
+  const q=document.getElementById('pickSearch').value.toLowerCase().trim();
+  const meals=pickerMode==='log'?Object.values(DB.meals).filter(x=>!x.deleted):[];
+  const foods=Object.values(DB.foods).filter(x=>!x.deleted);
+  let items=[...meals.map(x=>({...x,_type:'meal'})),...foods.map(x=>({...x,_type:'food'}))];
+  if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
+  items.sort((a,b)=>(b.used||0)-(a.used||0)||a.name.localeCompare(b.name));
+  const el=document.getElementById('pickerList');
+  const extra=(pickerMode==='log')?usdaSearchBtn('log'):'';
+  if(!items.length){el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg><p>${Object.keys(DB.foods).length?'No matches.':'No foods yet.<br>Create your first food above.'}</p></div>`+extra;return;}
+  el.innerHTML='<div class="listcard">'+items.map(x=>{
+    const n=x._type==='meal'?mealNut(x,1):foodNut(x,1);
+    const st=x._type==='food'?sourceTag(foodSource(x)):'';
+    const sub=(x._type==='meal'?`Meal · ${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`)+(st?` · ${esc(st)}`:'');
+    return `<button class="row" onclick="pickItem('${x._type}','${x.id}')">
+      <div class="row-main"><div class="row-t">${esc(x.name)} ${x._type==='meal'?'<span class="tagm">Meal</span>':''}</div><div class="row-s">${sub}</div></div>
+      <div class="row-r">${r0(n.calories)}</div></button>`;
+  }).join('')+'</div>'+extra;
+}
+function pickItem(type,id){
+  if(pickerMode==='meal'){closeSheet('picker');addMealComp(id);return;}
+  closeSheet('picker');openPortion(type,id);
+}
+
+/* ============ PORTION ============ */
+let portionRef=null, editingEntry=null, portionSelUnit='serving', portionTimeAccepted=false;
+function renderPortionUnits(){
+  const sel=document.getElementById('pQtyUnit');if(!sel)return;
+  if(!portionRef||portionRef.type==='meal'){
+    const amt=parseFloat(document.getElementById('pQty').value)||0;
+    sel.innerHTML=`<option value="serving">${amt===1?'serving':'servings'}</option>`;
+    sel.value='serving';sel.disabled=true;portionSelUnit='serving';return;
+  }
+  sel.disabled=false;
+  const f=DB.foods[portionRef.id];
+  const units=unitsForFood(f);
+  if(!units.includes(portionSelUnit))portionSelUnit=units[0];
+  sel.innerHTML=units.map(u=>`<option value="${esc(u)}">${esc(u)}</option>`).join('');
+  sel.value=portionSelUnit;
+}
+function onPortionUnitChange(){
+  const sel=document.getElementById('pQtyUnit');if(!portionRef||portionRef.type==='meal')return;
+  const f=DB.foods[portionRef.id];
+  const amount=parseFloat(document.getElementById('pQty').value)||0;
+  const mult=foodMultForUnit(f,amount,portionSelUnit);  // hold physical quantity constant
+  portionSelUnit=normalizeUnit(sel.value);
+  document.getElementById('pQty').value=fmtAmt(multToUnitAmount(f,mult,portionSelUnit));
+  renderPortionPreview();
+}
+function portionBase(){ // 1 serving expressed in the food's unit (meals: 1 serving)
+  if(portionRef.type==='meal')return 1;
+  const f=DB.foods[portionRef.id];return (f&&f.servQty)||1;
+}
+function portionUnit(){
+  if(portionRef.type==='meal')return 'serving';
+  const f=DB.foods[portionRef.id];return (f&&f.servUnit)||'serving';
+}
+function amountToMult(amount){
+  if(portionRef.type==='meal')return amount;
+  const base=portionBase();return base>0?amount/base:0;
+}
+function openPortion(type,id,opts){
+  opts=opts||{};
+  closeTimeHint();
+  const obj=type==='meal'?DB.meals[id]:DB.foods[id];if(!obj)return;
+  closeSheet('picker');
+  portionRef={type,id};
+  editingEntry=opts.editing?{meal:opts.meal,index:opts.index}:null;
+  if(opts.meal)pickerMeal=opts.meal;
+  document.getElementById('portionTitle').textContent=editingEntry?'Edit Entry':'Log Food';
+  document.getElementById('portionSave').textContent=editingEntry?'Save':'Add';
+  document.getElementById('portionDelete').style.display=editingEntry?'block':'none';
+  document.getElementById('pName').textContent=obj.name;
+  const unit=portionUnit(), base=portionBase();
+  const defAmount=(opts.amount!=null)?opts.amount:base;
+  portionSelUnit=(type==='meal')?'serving':normalizeUnit(opts.unit||(obj&&obj.servUnit)||'serving');
+  document.getElementById('pQty').value=fmtAmt(defAmount);
+  renderPortionUnits();
+  if(type==='meal'){
+    document.getElementById('pServingDesc').textContent=(obj.comps||[]).length+' ingredients';
+    const names=(obj.comps||[]).map(c=>{const f=DB.foods[c.foodId];return f?f.name:null;}).filter(Boolean);
+    document.getElementById('pIngredients').innerHTML=names.map(nm=>`<div>${esc(nm)}</div>`).join('');
+  }else{
+    document.getElementById('pServingDesc').textContent=(obj.brand?obj.brand+' · ':'')+'1 serving = '+fmtQty(base)+' '+unit;
+    document.getElementById('pIngredients').innerHTML='';
+  }
+  document.getElementById('pMealSelect').innerHTML=MEALS.map(m=>`<button class="meal-chip${m===pickerMeal?' sel':''}" data-m="${m}" onclick="pickerMeal='${m}';renderMealChips();">${MEAL_LABEL[m]}</button>`).join('');
+  const hasTime=(opts.time!=null&&opts.time!=='');
+  document.getElementById('pTime').value=hasTime?opts.time:nowHHMM();
+  portionTimeAccepted=hasTime;
+  renderTimeCtl();
+  renderPortionPreview();
+  const srcEl=document.getElementById('pSource');
+  if(srcEl)srcEl.textContent=(type==='meal')?'Your meal':('Source: '+sourceLabel(foodSource(obj)));
+  openSheet('portion');
+  document.getElementById('portionSave').onclick=commitPortion;
+}
+function renderMealChips(){document.querySelectorAll('#pMealSelect .meal-chip').forEach(c=>c.classList.toggle('sel',c.dataset.m===pickerMeal));}
+function nowHHMM(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+function fmtTime(hhmm){if(!hhmm)return'';const p=hhmm.split(':');const h=Number(p[0]),m=Number(p[1]);if(!isFinite(h)||!isFinite(m))return'';const ap=h<12?'AM':'PM';let hh=h%12;if(hh===0)hh=12;return hh+':'+String(m).padStart(2,'0')+' '+ap;}
+// Optional "time eaten": defaults to now but only saved if the user taps the green check.
+function renderTimeCtl(){
+  const inp=document.getElementById('pTime'),ok=document.getElementById('pTimeOk'),q=document.getElementById('pTimeQ');
+  if(!inp)return;
+  inp.classList.toggle('accepted',portionTimeAccepted);
+  ok.classList.toggle('on',portionTimeAccepted);
+  if(q)q.style.display=portionTimeAccepted?'none':'';
+  ok.setAttribute('aria-label',portionTimeAccepted?'Clear time':'Save this time');
+}
+function toggleTimeAccept(){portionTimeAccepted=!portionTimeAccepted;renderTimeCtl();}
+function explainTime(){
+  if(timeHintOpen){closeTimeHint();return;}     // second tap on "?" closes it
+  const t=document.getElementById('toast');
+  t.textContent='Tap the green check to save the exact time. Otherwise it just goes under the meal.';
+  t.classList.add('show');
+  clearTimeout(toastTimer);                       // sticky: no auto-dismiss
+  timeHintOpen=true;
+}
+function closeTimeHint(){
+  if(!timeHintOpen)return;
+  timeHintOpen=false;
+  document.getElementById('toast').classList.remove('show');
+}
+function portionStep(){
+  if(portionRef.type==='meal')return 1;
+  const u=(portionSelUnit||'').toLowerCase();
+  if(u==='serving')return 1;
+  if(u==='g'||u==='ml'||u==='mg'){const f=DB.foods[portionRef.id];return f.servQty>=200?25:(f.servQty>=40?10:5);}
+  return 1;
+}
+function bumpQty(dir){
+  const i=document.getElementById('pQty');
+  let v=(parseFloat(i.value)||0)+dir*portionStep();
+  if(v<0)v=0;
+  i.value=fmtAmt(v);
+  renderPortionPreview();
+}
+function renderPortionPreview(){
+  if(!portionRef)return;
+  const amount=parseFloat(document.getElementById('pQty').value)||0;
+  const mult=portionRef.type==='meal'?amount:foodMultForUnit(DB.foods[portionRef.id],amount,portionSelUnit);
+  const obj=portionRef.type==='meal'?DB.meals[portionRef.id]:DB.foods[portionRef.id];
+  const n=portionRef.type==='meal'?mealNut(obj,mult):foodNut(obj,mult);
+  if(portionRef.type==='meal'){
+    const sel=document.getElementById('pQtyUnit');if(sel)sel.innerHTML=`<option value="serving">${amount===1?'serving':'servings'}</option>`;
+    document.getElementById('pServingUnit').textContent='';
+  }else{
+    document.getElementById('pServingUnit').textContent='≈ '+fmtAmt(mult)+' serving'+(mult===1?'':'s');
+  }
+  document.getElementById('pNutPrev').innerHTML=`
+    <div><div class="npv display">${r0(n.calories)}</div><div class="npl">cal</div></div>
+    <div><div class="npv display" style="color:var(--carb)">${r0(n.totalCarbs)}g</div><div class="npl">Carbs</div></div>
+    <div><div class="npv display" style="color:var(--protein)">${r0(n.protein)}g</div><div class="npl">Protein</div></div>
+    <div><div class="npv display" style="color:var(--fat)">${r0(n.totalFat)}g</div><div class="npl">Fat</div></div>`;
+}
+function commitPortion(){
+  const amount=parseFloat(document.getElementById('pQty').value)||0;
+  if(amount<=0){toast('Enter an amount');return;}
+  const mult=portionRef.type==='meal'?amount:foodMultForUnit(DB.foods[portionRef.id],amount,portionSelUnit);
+  const unit=portionRef.type==='meal'?'serving':portionSelUnit;
+  const entry={type:portionRef.type,refId:portionRef.id,qty:mult,amt:amount,unit:unit};
+  const _t=document.getElementById('pTime').value;
+  if(portionTimeAccepted&&_t)entry.time=_t;
+  if(editingEntry){
+    // remove from its old meal, then add to the (possibly changed) selected meal
+    const oldArr=(DB.log[selDate]&&DB.log[selDate][editingEntry.meal])||[];
+    oldArr.splice(editingEntry.index,1);
+    pushEntry(pickerMeal,entry);
+    save();closeSheet('portion');renderToday();toast('Updated');
+    editingEntry=null;return;
+  }
+  pushEntry(pickerMeal,entry);
+  const obj=portionRef.type==='meal'?DB.meals[portionRef.id]:DB.foods[portionRef.id];
+  obj.used=(obj.used||0)+1;
+  save();closeSheet('portion');renderToday();toast('Added to '+MEAL_LABEL[pickerMeal]);
+}
+function pushEntry(meal,entry){
+  if(!DB.log[selDate])DB.log[selDate]={};
+  if(!DB.log[selDate][meal])DB.log[selDate][meal]=[];
+  DB.log[selDate][meal].push(entry);
+}
+function editEntry(meal,index){
+  const e=(DB.log[selDate]&&DB.log[selDate][meal]||[])[index];if(!e)return;
+  const obj=e.type==='meal'?DB.meals[e.refId]:DB.foods[e.refId];
+  if(!obj){toast('This item was deleted from your library');return;}
+  const amt=(e.amt!=null)?e.amt:(e.type==='meal'?e.qty:e.qty*((obj.servQty)||1));
+  openPortion(e.type,e.refId,{amount:amt,unit:e.unit,meal,index,editing:true,time:e.time});
+}
+function deleteEditingEntry(){
+  if(!editingEntry)return;
+  const arr=DB.log[selDate]&&DB.log[selDate][editingEntry.meal];
+  if(arr)arr.splice(editingEntry.index,1);
+  save();closeSheet('portion');renderToday();toast('Removed');editingEntry=null;
+}
+
+/* ============ FOODS LIBRARY ============ */
+let foodsTab='foods';
+function setFoodsTab(t){foodsTab=t;const a=document.getElementById('segFoods'),b=document.getElementById('segMeals');if(a)a.classList.toggle('sel',t==='foods');if(b)b.classList.toggle('sel',t==='meals');renderFoods();}
+function renderFoods(){
+  const q=(document.getElementById('foodSearch').value||'').toLowerCase().trim();
+  const meals=foodsTab==='meals';
+  let items=meals
+    ?Object.values(DB.meals).filter(x=>!x.deleted).map(x=>({...x,_type:'meal'}))
+    :Object.values(DB.foods).filter(x=>!x.deleted).map(x=>({...x,_type:'food'}));
+  if(q)items=items.filter(x=>(x.name+' '+(x.brand||'')).toLowerCase().includes(q));
+  items.sort((a,b)=>a.name.localeCompare(b.name));
+  const el=document.getElementById('foodsList');
+  const extra=meals?'':usdaSearchBtn('library');
+  if(!items.length){
+    const msg=q?'No matches.':(meals?'No meals yet.<br>Tap “New Meal” to combine foods you log together.':'No foods yet.<br>Tap “New Food”, scan a barcode, or search the database.');
+    el.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2v7c0 1.1.9 2 2 2a2 2 0 0 0 2-2V2M5 2v20M19 2v20M19 11c1.66 0 3-1.79 3-4s-1.34-4-3-4"/></svg><p>${msg}</p></div>`+extra;return;
+  }
+  el.innerHTML='<div class="listcard">'+items.map(x=>{
+    const n=x._type==='meal'?mealNut(x,1):foodNut(x,1);
+    const st=x._type==='food'?sourceTag(foodSource(x)):'';
+    const sub=(x._type==='meal'?`${(x.comps||[]).length} ingredient${(x.comps||[]).length!==1?'s':''}`:`${x.brand?esc(x.brand)+' · ':''}per ${fmtQty(x.servQty||1)} ${esc(x.servUnit||'serving')}`)+(st?` · ${esc(st)}`:'');
+    return `<button class="row" onclick="${x._type==='meal'?`editMeal('${x.id}')`:`editFood('${x.id}')`}">
+      <div class="row-main"><div class="row-t">${esc(x.name)}</div><div class="row-s">${sub}</div></div>
+      <div class="row-r">${r0(n.calories)} <span style="color:var(--ink-faint);font-weight:500;font-size:12px">cal</span></div>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>`;
+  }).join('')+'</div>'+extra;
+}
+
+/* ============ CREATE / EDIT FOOD ============ */
+let editingFood=null, servScaleBasis=0;
+function openCreateFood(forLog){
+  closeSheet('picker');
+  editingFood=null;currentBarcode='';currentSource='';currentFdcId='';pendingLogAfterSave=(forLog===true);pendingMealAfterSave=false;
+  document.getElementById('foodSheetTitle').textContent='Create Food';
+  document.getElementById('foodDeleteBtn').style.display='none';
+  document.getElementById('fName').value='';document.getElementById('fBrand').value='';
+  document.getElementById('fServQty').value='1';setUnitValue('');servScaleBasis=0;
+  NUT_FIELDS.forEach(f=>{const el=document.getElementById('n_'+f);if(el)el.value='';});
+  document.getElementById('moreNutrients').classList.remove('open');
+  document.getElementById('moreBtn').classList.remove('open');
+  setFiberBreakdown(false);
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(false);
+  document.getElementById('wAmt').value='';
+  document.getElementById('wUnit').value='floz';
+  setMicronutrientsOpen(false);
+  openSheet('food');
+}
+function editFood(id){
+  const f=DB.foods[id];if(!f)return;editingFood=id;currentBarcode=f.barcode||'';currentSource=f.source||'';currentFdcId=f.fdcId||'';
+  document.getElementById('foodSheetTitle').textContent='Edit Food';
+  document.getElementById('foodDeleteBtn').style.display='block';
+  document.getElementById('fName').value=f.name||'';
+  document.getElementById('fBrand').value=f.brand||'';
+  document.getElementById('fServQty').value=f.servQty||1;
+  setUnitValue(f.servUnit||'');
+  servScaleBasis=0;
+  NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);if(el){const v=f.nut[k];el.value=(v===0||v===undefined||v===null)?'':v;}});
+  const _hasMicro=['vitD','calcium','iron','potassium','vitA','vitC'].some(k=>{const el=document.getElementById('n_'+k);return el&&el.value!=='';});
+  document.getElementById('moreNutrients').classList.toggle('open',_hasMicro);
+  document.getElementById('moreBtn').classList.toggle('open',_hasMicro);
+  setFiberBreakdown(!!(f.nut.fiberSoluble||f.nut.fiberInsoluble));
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(EL_ONLY.some(k=>f.nut[k]));
+  document.getElementById('wAmt').value=f.nut.water?round1(f.nut.water):'';
+  document.getElementById('wUnit').value='floz';
+  setMicronutrientsOpen(MICRO_KEYS.some(k=>f.nut[k]));
+  openSheet('food');
+}
+/* ---- Unit dropdown helpers ---- */
+const UNIT_OPTIONS=['serving','g','oz','lb','kg','mL','L','fl oz','cup','tbsp','tsp','slice','piece','scoop','can','bottle','packet','egg','clove'];
+function buildUnitSelect(){
+  const sel=document.getElementById('fServUnit');if(!sel||sel.dataset.built)return;
+  sel.innerHTML=UNIT_OPTIONS.map(u=>`<option value="${u}">${u}</option>`).join('')+'<option value="__custom__">Custom…</option>';
+  sel.dataset.built='1';
+}
+function normalizeUnit(u){
+  if(!u)return'';u=String(u).trim();
+  const map={ml:'mL',mls:'mL',milliliter:'mL',milliliters:'mL',l:'L',liter:'L',liters:'L',g:'g',gram:'g',grams:'g',gr:'g',oz:'oz',ounce:'oz',ounces:'oz',lb:'lb',lbs:'lb',pound:'lb',pounds:'lb',kg:'kg',cup:'cup',cups:'cup',tbsp:'tbsp',tablespoon:'tbsp',tsp:'tsp',teaspoon:'tsp','fl oz':'fl oz','floz':'fl oz'};
+  const low=u.toLowerCase();
+  return map[low]||u;
+}
+function setUnitValue(u){
+  buildUnitSelect();
+  const sel=document.getElementById('fServUnit'),custom=document.getElementById('fServUnitCustom');
+  u=normalizeUnit(u);
+  if(!u){sel.value='serving';custom.style.display='none';custom.value='';return;}
+  if(UNIT_OPTIONS.includes(u)){sel.value=u;custom.style.display='none';custom.value='';}
+  else{sel.value='__custom__';custom.style.display='block';custom.value=u;}
+}
+function getUnitValue(){
+  const sel=document.getElementById('fServUnit'),custom=document.getElementById('fServUnitCustom');
+  if(sel.value==='__custom__')return (custom.value.trim()||'serving');
+  return sel.value||'serving';
+}
+function onUnitChange(){
+  const sel=document.getElementById('fServUnit'),custom=document.getElementById('fServUnitCustom');
+  if(sel.value==='__custom__'){custom.style.display='block';custom.focus();}
+  else{custom.style.display='none';}
+}
+function toggleMore(){document.getElementById('moreNutrients').classList.toggle('open');document.getElementById('moreBtn').classList.toggle('open');}
+function toggleEl(){document.getElementById('elGroup').classList.toggle('open');document.getElementById('elBtn').classList.toggle('open');}
+// Sodium/potassium/calcium appear in both their normal field and the Electrolytes section,
+// bound to one stored value (the n_* field). Mirrors (m_*) are display-only, kept in sync.
+const EL_MIRROR=['sodium','potassium','calcium'];
+const EL_ONLY=['magnesium','chloride','phosphorus','bicarbonate'];
+function wireElectrolyteSync(){
+  EL_MIRROR.forEach(k=>{
+    const n=document.getElementById('n_'+k), m=document.getElementById('m_'+k);
+    if(!n||!m)return;
+    n.addEventListener('input',()=>{m.value=n.value;});
+    m.addEventListener('input',()=>{n.value=m.value;});
+  });
+}
+function pushElectrolyteMirrors(){
+  EL_MIRROR.forEach(k=>{const n=document.getElementById('n_'+k),m=document.getElementById('m_'+k);if(n&&m)m.value=n.value;});
+}
+function setElectrolytesOpen(open){
+  document.getElementById('elGroup').classList.toggle('open',open);
+  document.getElementById('elBtn').classList.toggle('open',open);
+}
+function buildMicroFields(){
+  const g=document.getElementById('microGrid');if(!g)return;
+  g.innerHTML=MICROS.map(([k,label,unit])=>`<div class="field"><label>${label} (${unit})</label><input type="text" inputmode="decimal" step="any" id="n_${k}"></div>`).join('');
+}
+function toggleMicro(){document.getElementById('microGroup').classList.toggle('open');document.getElementById('microBtn').classList.toggle('open');}
+function setMicronutrientsOpen(open){
+  document.getElementById('microGroup').classList.toggle('open',open);
+  document.getElementById('microBtn').classList.toggle('open',open);
+}
+function setFiberBreakdown(open){
+  const b=document.getElementById('fiberBreak'),t=document.getElementById('fiberToggle');
+  if(!b||!t)return;
+  b.style.display=open?'block':'none';
+  t.classList.toggle('open',open);
+  t.textContent=open?'– Hide soluble / insoluble':'+ Break into soluble / insoluble';
+  if(!open){const h=document.getElementById('fiberHint');if(h)h.textContent='';}
+}
+function toggleFiberBreakdown(){setFiberBreakdown(document.getElementById('fiberBreak').style.display==='none');}
+function onFiberSubInput(){
+  const solEl=document.getElementById('n_fiberSoluble'),insEl=document.getElementById('n_fiberInsoluble'),tot=document.getElementById('n_fiber'),hint=document.getElementById('fiberHint');
+  const sol=parseFloat(solEl.value),ins=parseFloat(insEl.value);
+  const sum=(isFinite(sol)?sol:0)+(isFinite(ins)?ins:0);
+  if(tot.value===''&&sum>0)tot.value=round1(sum);       // total stays canonical; only auto-fill when blank
+  const totv=parseFloat(tot.value);
+  hint.textContent=(isFinite(totv)&&sum>totv+0.05)?'Soluble + insoluble add up to more than the total above.':'';
+}
+/* When a DATABASE-pulled food (USDA/barcode) has its serving size changed, rescale the
+   per-serving nutrition to match (the food's per-gram values are fixed). Manual entry and
+   editing an existing food do NOT auto-scale — there you set the serving and its values yourself.
+   Fires on change (blur), never on each keystroke, so typing "115" doesn't rescale at "1". */
+function onServingSizeChange(){
+  const el=document.getElementById('fServQty');
+  const nv=parseFloat(el.value);
+  if(servScaleBasis>0 && isFinite(nv) && nv>0 && Math.abs(nv-servScaleBasis)>1e-9){
+    const r=nv/servScaleBasis;
+    NUT_FIELDS.forEach(k=>{
+      const f=document.getElementById('n_'+k);
+      if(!f||f.value==='')return;
+      const v=parseFloat(f.value);
+      if(!isFinite(v))return;
+      f.value=(k==='calories')?String(Math.round(v*r)):String(round1(v*r));
+    });
+  }
+  if(isFinite(nv)&&nv>0&&servScaleBasis>0)servScaleBasis=nv;
+}
+function saveFood(){
+  const name=document.getElementById('fName').value.trim();
+  if(!name){toast('Name is required');return;}
+  const cal=document.getElementById('n_calories').value;
+  if(cal===''){toast('Calories are required');return;}
+  const nut={};NUT_FIELDS.forEach(k=>{const el=document.getElementById('n_'+k);const v=el?el.value:'';nut[k]=v===''?0:Number(v);});
+  const _wv=parseFloat(document.getElementById('wAmt').value);
+  nut.water=(isFinite(_wv)&&_wv>0)?toFlOz(_wv,document.getElementById('wUnit').value):0;
+  const f={
+    id:editingFood||uid(),name,
+    brand:document.getElementById('fBrand').value.trim(),
+    servQty:Number(document.getElementById('fServQty').value)||1,
+    servUnit:getUnitValue(),
+    barcode:currentBarcode||'',
+    source:currentSource||(currentBarcode?'off':'manual'),
+    fdcId:currentFdcId||'',
+    nut, used:editingFood?DB.foods[editingFood].used:0
+  };
+  const newId=f.id, wasNew=!editingFood;
+  DB.foods[f.id]=f;save();closeSheet('food');
+  if(document.getElementById('s-foods').classList.contains('active'))renderFoods();
+  renderToday();
+  // Created while building a meal -> add it as an ingredient and return to the meal.
+  if(wasNew && pendingMealAfterSave){pendingMealAfterSave=false;pendingLogAfterSave=false;setTimeout(()=>addMealComp(newId),250);toast('Added to meal');return;}
+  // If this food was just created via the logging flow, jump straight to logging it.
+  if(wasNew && pendingLogAfterSave){pendingLogAfterSave=false;setTimeout(()=>openPortion('food',newId),250);}
+  toast(editingFood?'Food updated':'Food saved');
+}
+function deleteFood(){
+  if(!editingFood)return;
+  if(!confirm('Delete this food? It leaves your library, but past days that logged it keep their numbers.'))return;
+  const f=DB.foods[editingFood];if(f){f.deleted=true;f.deletedAt=new Date().toISOString();}
+  save();closeSheet('food');renderFoods();renderToday();toast('Deleted');
+}
+
+/* ============ CREATE / EDIT MEAL ============ */
+let editingMeal=null,mealDraft=[];
+function openCreateMeal(){editingMeal=null;mealDraft=[];document.getElementById('mealSheetTitle').textContent='Create Meal';document.getElementById('mealDeleteBtn').style.display='none';document.getElementById('mName').value='';renderMealComps();openSheet('meal');}
+function editMeal(id){const m=DB.meals[id];if(!m)return;editingMeal=id;mealDraft=(m.comps||[]).map(c=>({...c}));document.getElementById('mealSheetTitle').textContent='Edit Meal';document.getElementById('mealDeleteBtn').style.display='block';document.getElementById('mName').value=m.name;renderMealComps();openSheet('meal');}
+function addMealComp(foodId){mealDraft.push({foodId,qty:1});renderMealComps();openSheet('meal');}
+function renderMealComps(){
+  const el=document.getElementById('mealComps');
+  if(!mealDraft.length){el.innerHTML='<div style="font-size:13px;color:var(--ink-faint);padding:6px 0 10px;">No ingredients yet.</div>';}
+  else{
+    el.innerHTML=mealDraft.map((c,i)=>{
+      const f=DB.foods[c.foodId];if(!f)return'';
+      const hasUnit=f.servUnit&&(f.servQty>0);
+      const dispVal=hasUnit?fmtQty(c.qty*f.servQty):fmtQty(c.qty);
+      const dispUnit=hasUnit?esc(f.servUnit):'srv';
+      return `<div class="comp">
+        <div class="comp-info"><div class="row-t" style="font-size:14.5px">${esc(f.name)}</div>
+        <div class="row-s">${r0(foodNut(f,c.qty).calories)} cal</div></div>
+        <div class="goal-input"><input type="number" inputmode="decimal" step="any" value="${dispVal}" style="width:64px" onchange="setCompQty(${i},this.value)"><span style="font-size:12px;color:var(--ink-faint);font-weight:600">${dispUnit}</span></div>
+        <button class="entry-x" onclick="rmComp(${i})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>`;
+    }).join('');
+  }
+  const tmp={comps:mealDraft};const n=mealNut(tmp,1);
+  document.getElementById('mealNutPrev').innerHTML=`
+    <div><div class="npv display">${r0(n.calories)}</div><div class="npl">cal</div></div>
+    <div><div class="npv display" style="color:var(--carb)">${r0(n.totalCarbs)}g</div><div class="npl">Carbs</div></div>
+    <div><div class="npv display" style="color:var(--protein)">${r0(n.protein)}g</div><div class="npl">Protein</div></div>
+    <div><div class="npv display" style="color:var(--fat)">${r0(n.totalFat)}g</div><div class="npl">Fat</div></div>`;
+}
+function setCompQty(i,v){
+  const f=DB.foods[mealDraft[i].foodId];
+  const x=Number(v)||0;
+  mealDraft[i].qty=(f&&f.servUnit&&f.servQty>0)?x/f.servQty:x;
+  renderMealComps();
+}
+function rmComp(i){mealDraft.splice(i,1);renderMealComps();}
+function saveMeal(){
+  const name=document.getElementById('mName').value.trim();
+  if(!name){toast('Meal name is required');return;}
+  if(!mealDraft.length){toast('Add at least one ingredient');return;}
+  const m={id:editingMeal||uid(),name,comps:mealDraft.map(c=>({...c})),used:editingMeal?DB.meals[editingMeal].used:0};
+  DB.meals[m.id]=m;save();closeSheet('meal');renderFoods();renderToday();toast(editingMeal?'Meal updated':'Meal saved');
+}
+function deleteMeal(){if(!editingMeal)return;if(!confirm('Delete this meal? It leaves your library, but past days that logged it keep their numbers.'))return;const m=DB.meals[editingMeal];if(m){m.deleted=true;m.deletedAt=new Date().toISOString();}save();closeSheet('meal');renderFoods();renderToday();toast('Deleted');}
+
+/* ============ GOALS ============ */
+function renderGoals(){
+  const g=DB.goals;
+  document.getElementById('gCal').value=g.calories;
+  document.getElementById('gCarb').value=g.carbs;
+  document.getElementById('gProtein').value=g.protein;
+  document.getElementById('gFat').value=g.fat;
+  updateGoalPcts();
+}
+function updateGoalPcts(){
+  const cal=Number(document.getElementById('gCal').value)||0;
+  const carb=Number(document.getElementById('gCarb').value)||0;
+  const pro=Number(document.getElementById('gProtein').value)||0;
+  const fat=Number(document.getElementById('gFat').value)||0;
+  const macroCal=carb*4+pro*4+fat*9;
+  const pc=v=>macroCal>0?Math.round(v/macroCal*100)+'%':'0%';
+  document.getElementById('pCarb').textContent=pc(carb*4);
+  document.getElementById('pProtein').textContent=pc(pro*4);
+  document.getElementById('pFat').textContent=pc(fat*9);
+  const note=document.getElementById('goalNote');
+  const diff=Math.round(macroCal-cal);
+  if(Math.abs(diff)<=20){note.className='goalnote';note.textContent='Your macros add up to '+Math.round(macroCal)+' cal — right on target.';}
+  else{note.className='goalnote warn';note.textContent='Heads up: your macros total '+Math.round(macroCal)+' cal, which is '+Math.abs(diff)+' '+(diff>0?'above':'below')+' your calorie goal. That\'s fine — just so you know.';}
+}
+function saveGoals(){
+  DB.goals={
+    calories:Number(document.getElementById('gCal').value)||0,
+    carbs:Number(document.getElementById('gCarb').value)||0,
+    protein:Number(document.getElementById('gProtein').value)||0,
+    fat:Number(document.getElementById('gFat').value)||0
+  };
+  save();renderToday();
+}
+
+/* ============ PROGRESS ============ */
+function renderProgress(){
+  const days=[];const today=parseYmd(todayStr());
+  for(let i=13;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);days.push(ymd(d));}
+  const goal=DB.goals.calories||2000;
+  const cals=days.map(d=>dayTotals(d).calories);
+  const max=Math.max(goal,...cals,1);
+  document.getElementById('chart').innerHTML=days.map((d,i)=>{
+    const c=cals[i];const h=Math.max(c/max*100,c>0?4:1.5);
+    const cls=c===0?'':(c>goal?'over':'has');
+    const dd=parseYmd(d);
+    return `<div class="col" title="${c?r0(c)+' cal':'no log'}"><div class="colbar ${cls}" style="height:${h}%"></div><div class="cl">${dd.getDate()}</div></div>`;
+  }).join('');
+  // stats
+  const logged=cals.filter(c=>c>0);
+  const avg=logged.length?r0(logged.reduce((a,b)=>a+b,0)/logged.length):0;
+  document.getElementById('statAvg').textContent=avg.toLocaleString();
+  // streak (consecutive logged days ending today or yesterday)
+  let streak=0;for(let i=0;;i++){const d=new Date(today);d.setDate(today.getDate()-i);const t=dayTotals(ymd(d)).calories;if(t>0)streak++;else{if(i===0)continue;break;}if(i>400)break;}
+  document.getElementById('statStreak').textContent=streak;
+  // avg macros
+  const allLogged=days.filter(d=>dayTotals(d).calories>0).map(d=>dayTotals(d));
+  const am=zero();allLogged.forEach(t=>NUT_FIELDS.forEach(f=>am[f]+=t[f]));
+  const n=allLogged.length||1;
+  const defs=[['Carbs','totalCarbs','var(--carb)'],['Protein','protein','var(--protein)'],['Fat','totalFat','var(--fat)']];
+  document.getElementById('avgMacros').innerHTML=defs.map(([lbl,k,col])=>`<div class="macro"><div class="ml"><span class="dot" style="background:${col}"></span>${lbl}</div><div class="mv">${r0(am[k]/n)}<span>g avg</span></div></div>`).join('');
+}
+
+/* ============ EXPORT / IMPORT ============ */
+function buildDailySummary(){
+  // Shared "daily" layer per Health Data Spec v1 — registry keys only.
+  const out={};
+  Object.keys(DB.log||{}).forEach(date=>{
+    const t=dayTotals(date);
+    const row={
+      calories:r0(t.calories),
+      protein_g:r0(t.protein),
+      carbs_g:r0(t.totalCarbs),
+      fat_g:r0(t.totalFat),
+      fiber_g:r0(t.fiber),
+      sugar_g:r0(t.sugars),
+      sodium_mg:r0(t.sodium)
+    };
+    if(r0(t.fiberSoluble)>0)row.fiber_soluble_g=r0(t.fiberSoluble);
+    if(r0(t.fiberInsoluble)>0)row.fiber_insoluble_g=r0(t.fiberInsoluble);
+    [['potassium','potassium_mg'],['calcium','calcium_mg'],['magnesium','magnesium_mg'],['chloride','chloride_mg'],['phosphorus','phosphorus_mg'],['bicarbonate','bicarbonate_mg']].forEach(([f,key])=>{if(r0(t[f])>0)row[key]=r0(t[f]);});
+    {const w=round1(t.water);if(w>0)row.water_oz=w;}
+    MICRO_DAILY.forEach(([f,key])=>{const v=round1(t[f]);if(v>0)row[key]=v;});
+    if(Object.values(row).every(v=>!v))return; // nothing logged this day at all
+    out[date]=row;
+  });
+  return out;
+}
+function exportData(){
+  const payload={
+    health_app:'plate',
+    version:1,
+    exportedAt:new Date().toISOString(),
+    units:'us',
+    daily:buildDailySummary(),
+    raw:DB
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='plate-backup-'+todayStr()+'.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Backup downloaded');
+}
+function importData(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const parsed=JSON.parse(reader.result);
+      // Accept new enveloped format (data in .raw) or older plain backup (data at top level).
+      const d=(parsed && parsed.raw && parsed.raw.foods) ? parsed.raw : parsed;
+      if(!d.goals||!d.foods||!d.log){throw new Error('bad');}
+      if(!confirm('Replace all current data with this backup? This cannot be undone.'))return;
+      DB=Object.assign(blankDB(),d);save();
+      renderToday();renderGoals();toast('Backup restored');
+    }catch(e){toast('That file could not be read');}
+  };
+  reader.readAsText(file);
+  ev.target.value='';
+}
+function confirmReset(){
+  if(!confirm('Erase ALL foods, meals, goals and logs? Export a backup first if you want to keep anything. This cannot be undone.'))return;
+  if(!confirm('Really erase everything?'))return;
+  DB=blankDB();save();renderToday();renderGoals();renderFoods();toast('All data erased');
+}
+
+/* ============ SHEET HELPERS ============ */
+function openSheet(name){document.getElementById(name+'Scrim').classList.add('open');document.getElementById(name+'Sheet').classList.add('open');document.body.style.overflow='hidden';}
+function closeSheet(name){document.getElementById(name+'Scrim').classList.remove('open');document.getElementById(name+'Sheet').classList.remove('open');document.body.style.overflow='';}
+// Closing the food sheet while mid-meal-build returns to the meal (draft preserved).
+function closeFoodSheet(){
+  closeSheet('food');
+  if(pendingMealAfterSave){pendingMealAfterSave=false;setTimeout(()=>{renderMealComps();openSheet('meal');},250);}
+}
+// Tapping a numeric field in the food sheet selects its whole value, so a scanned-in
+// number can be corrected by just typing over it (these are text+inputmode for iOS).
+function wireSelectOnFocus(){
+  document.querySelectorAll('#foodSheet input[inputmode="decimal"]').forEach(inp=>{
+    inp.addEventListener('focus',function(){const el=this;setTimeout(()=>{try{el.select();}catch(e){}},0);});
+  });
+}
+
+/* ============ UTIL ============ */
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+let toastTimer, timeHintOpen=false;
+function toast(msg){timeHintOpen=false;const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1900);}
+
+/* ============ BARCODE SCANNER + OPEN FOOD FACTS ============ */
+let currentBarcode='', pendingLogAfterSave=false, pendingMealAfterSave=false, scanContext='log', currentSource='', currentFdcId='';
+let qrScanner=null, scanHandling=false, lastScanCode='', decodeGen=0, decodeTimer=null;
+const SCANNER_SRC='https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+const QUAGGA_SRC='https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js';
+
+function setScanStatus(html){document.getElementById('scanStatus').innerHTML=html;}
+function isStandaloneApp(){
+  return (window.navigator.standalone===true) ||
+         (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
+function barcodeFormats(){
+  return window.Html5QrcodeSupportedFormats?[
+    Html5QrcodeSupportedFormats.EAN_13,Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,Html5QrcodeSupportedFormats.UPC_E
+  ]:undefined;
+}
+function openScan(ctx){
+  scanContext=ctx||'log';scanHandling=false;
+  document.getElementById('manualBarcode').value='';
+  openSheet('scan');
+  const standalone=isStandaloneApp();
+  // iOS blocks live camera (getUserMedia) inside installed home-screen web apps.
+  // In that mode we skip the live viewfinder and use the native-camera photo path instead.
+  document.getElementById('scanRegion').style.display=standalone?'none':'block';
+  if(standalone){
+    setScanStatus('Tap <b>Take a photo of the barcode</b> below — it opens your camera and reads the code from the picture.');
+    loadScanner(()=>{}); // preload so photo decode is instant
+  }else{
+    setScanStatus('Starting camera…');
+    loadScanner(err=>{
+      if(err){setScanStatus('Camera tool couldn\'t load (you may be offline).<br>Use “Take a photo” or type the barcode below.');return;}
+      startCamera();
+    });
+  }
+}
+function loadScanner(cb){
+  if(window.Html5Qrcode){cb();return;}
+  let done=false;const fin=e=>{if(done)return;done=true;cb(e);};
+  const s=document.createElement('script');s.src=SCANNER_SRC;
+  s.onload=()=>fin();s.onerror=()=>fin('err');
+  setTimeout(()=>fin('err'),scanLibMs());
+  document.head.appendChild(s);
+}
+function startCamera(){
+  try{
+    qrScanner=new Html5Qrcode("scanRegion",{
+      formatsToSupport:barcodeFormats(),
+      useBarCodeDetectorIfSupported:true,
+      experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+      verbose:false
+    });
+    const qrbox=(vw,vh)=>{const w=Math.max(180,Math.min(Math.round(vw*0.85),330));return{width:w,height:Math.max(120,Math.round(w*0.48))};};
+    qrScanner.start(
+      {facingMode:"environment",focusMode:"continuous"},
+      {fps:18, qrbox, disableFlip:true, aspectRatio:1.0},
+      onScanFound,()=>{}
+    ).then(()=>setScanStatus('Center the barcode in the box — or use “Take a photo”.'))
+     .catch(e=>{
+       document.getElementById('scanRegion').style.display='none';
+       setScanStatus('Live camera unavailable here. Tap <b>Take a photo of the barcode</b>, or type the number below.');
+     });
+  }catch(e){setScanStatus('Tap “Take a photo of the barcode”, or type the number below.');}
+}
+// Decode a barcode from a still photo taken with the native camera (works in installed-app mode).
+function loadQuagga(cb){
+  if(window.Quagga){cb();return;}
+  let done=false;const fin=e=>{if(done)return;done=true;cb(e);};
+  const s=document.createElement('script');s.src=QUAGGA_SRC;
+  s.onload=()=>fin();s.onerror=()=>fin('err');
+  setTimeout(()=>fin('err'),scanLibMs());
+  document.head.appendChild(s);
+}
+/* Photo-decode safety: a generation counter invalidates stale callbacks, and a hard
+   deadline guarantees the "Reading photo…" spinner can never hang (covers a slow/stuck
+   decode or a CDN library load that never resolves). Durations are overridable for tests. */
+function scanLibMs(){return (typeof window!=='undefined'&&window.PLATE_SCAN_LIB_MS)||6000;}
+function scanDecodeMs(){return (typeof window!=='undefined'&&window.PLATE_SCAN_DECODE_MS)||10000;}
+function decodeStale(gen){return gen!==decodeGen;}
+function decodeSucceed(gen,code){if(decodeStale(gen))return;clearTimeout(decodeTimer);decodeGen++;onScanFound(code);}
+function decodeFail(gen,msg){if(decodeStale(gen))return;clearTimeout(decodeTimer);decodeGen++;scanHandling=false;setScanStatus(msg);}
+function onPhotoChosen(ev){
+  const file=ev.target.files&&ev.target.files[0];
+  ev.target.value='';
+  if(!file)return;
+  scanHandling=false;
+  const gen=++decodeGen;
+  clearTimeout(decodeTimer);
+  decodeTimer=setTimeout(()=>{ if(gen!==decodeGen)return; decodeGen++; scanHandling=false; setScanStatus('Couldn’t read the barcode in time. Retake it — fill the frame, hold straight-on with good light — or type the number below.'); },scanDecodeMs());
+  setScanStatus('<span class="spinner"></span> Reading photo…');
+  // Read as a data URL (more reliable than a blob: URL), normalize onto a canvas, then decode.
+  const fr=new FileReader();
+  fr.onload=()=>{
+    if(decodeStale(gen))return;
+    const img=new Image();
+    img.onload=()=>{
+      if(decodeStale(gen))return;
+      // Downscale the long edge so bars stay crisp but the image isn't enormous.
+      const maxW=1600, scale=Math.min(1, maxW/Math.max(img.width,img.height));
+      const cw=Math.round(img.width*scale), ch=Math.round(img.height*scale);
+      const cnv=document.createElement('canvas');cnv.width=cw;cnv.height=ch;
+      const ctx=cnv.getContext('2d');ctx.drawImage(img,0,0,cw,ch);
+      let dataUrl;
+      try{dataUrl=cnv.toDataURL('image/jpeg',0.92);}catch(e){dataUrl=fr.result;}
+      decodePhoto(dataUrl,file,gen);
+    };
+    img.onerror=()=>decodePhoto(fr.result,file,gen);
+    img.src=fr.result;
+  };
+  fr.onerror=()=>decodeFail(gen,'Couldn’t read that photo. Try again, or type the number below.');
+  fr.readAsDataURL(file);
+}
+// Try Quagga with several settings (covers near/far, sharp/soft), then fall back.
+function decodePhoto(src,file,gen){
+  loadQuagga(err=>{
+    if(decodeStale(gen))return;
+    if(err){photoFallback(file,gen);return;}
+    const readers=['ean_reader','ean_8_reader','upc_reader','upc_e_reader','code_128_reader'];
+    const attempts=[
+      {patchSize:'medium',halfSample:true},
+      {patchSize:'large',halfSample:false},
+      {patchSize:'small',halfSample:false},
+      {patchSize:'x-large',halfSample:false}
+    ];
+    let i=0;
+    const tryNext=()=>{
+      if(decodeStale(gen))return;
+      if(i>=attempts.length){photoFallback(file,gen);return;}
+      const a=attempts[i++];
+      try{
+        Quagga.decodeSingle({
+          src, numOfWorkers:0, locate:true,
+          inputStream:{size:1600},
+          locator:{patchSize:a.patchSize, halfSample:a.halfSample},
+          decoder:{readers}
+        },result=>{
+          if(decodeStale(gen))return;
+          if(result&&result.codeResult&&result.codeResult.code){decodeSucceed(gen,result.codeResult.code);}
+          else{tryNext();}
+        });
+      }catch(e){tryNext();}
+    };
+    tryNext();
+  });
+}
+// Last-resort decoder.
+function photoFallback(file,gen){
+  loadScanner(err=>{
+    if(decodeStale(gen))return;
+    if(err){decodeFail(gen,'Couldn’t load the barcode reader (you may be offline). Type the number below.');return;}
+    let inst;
+    try{ inst=new Html5Qrcode("scanFileRegion",{formatsToSupport:barcodeFormats(),verbose:false}); }
+    catch(e){ try{inst=new Html5Qrcode("scanFileRegion");}catch(e2){decodeFail(gen,'Type the barcode below.');return;} }
+    inst.scanFile(file,false)
+      .then(text=>{ try{inst.clear();}catch(e){} decodeSucceed(gen,text); })
+      .catch(()=>{ try{inst.clear();}catch(e){} decodeFail(gen,'Couldn’t read a barcode in that photo. Get close so the barcode fills the frame, hold straight-on and steady, avoid glare — then retake, or type the number below.'); });
+  });
+}
+function stopCamera(){
+  if(qrScanner){
+    const s=qrScanner;qrScanner=null;
+    try{s.stop().then(()=>{try{s.clear();}catch(e){}}).catch(()=>{});}catch(e){}
+  }
+}
+function closeScan(){stopCamera();closeSheet('scan');}
+function onScanFound(text){
+  if(scanHandling)return;scanHandling=true;
+  stopCamera();
+  if(navigator.vibrate)try{navigator.vibrate(40);}catch(e){}
+  lookupBarcode(text);
+}
+
+function lookupBarcode(code){
+  code=(code||'').replace(/\s/g,'');
+  if(!code){toast('Enter a barcode number');scanHandling=false;return;}
+  // 1) already in your library?
+  const local=findFoodByBarcode(code);
+  if(local){
+    closeScan();
+    if(scanContext==='log'){toast('Found in your foods');setTimeout(()=>openPortion('food',local.id),200);}
+    else{toast('You already have this food');setTimeout(()=>editFood(local.id),200);}
+    return;
+  }
+  // 2) look it up online — with a hard timeout so a slow/hung request can't get stuck on "Looking up…"
+  setScanStatus('<span class="spinner"></span> Looking up '+esc(code)+'…');
+  const url='https://world.openfoodfacts.org/api/v0/product/'+encodeURIComponent(code)+'.json';
+  const ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  const timer=setTimeout(()=>{if(ctrl)try{ctrl.abort();}catch(e){}},9000);
+  fetch(url,ctrl?{signal:ctrl.signal}:{}).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();}).then(data=>{
+    clearTimeout(timer);
+    if(data&&data.status===1&&data.product){
+      prefillFromOFF(data.product,code);
+    }else{
+      scanNotFound(code);   // explicit "not found", with a one-tap manual-add
+    }
+  }).catch(err=>{
+    clearTimeout(timer);
+    scanHandling=false;
+    if(err&&err.name==='AbortError'){
+      setScanStatus('That lookup took too long — the database is slow or you’re offline.<br>Try again, or add it manually below.');
+    }else{
+      setScanStatus('Couldn’t reach the database (you may be offline).<br>Try again, or add it manually below.');
+    }
+  });
+}
+function scanNotFound(code){
+  lastScanCode=code; scanHandling=false;
+  const el=document.getElementById('scanStatus'); if(!el)return;
+  el.innerHTML='<b>Not in the database.</b><br>You can add it yourself — the barcode is saved, so next time it’s instant.'
+    +'<button class="btn btn-soft" style="margin-top:12px;" onclick="addScannedManually()">Add it manually</button>';
+}
+function addScannedManually(){
+  const code=lastScanCode;
+  closeScan();
+  openCreateFood(scanContext==='log');
+  currentBarcode=code; currentSource='manual'; currentFdcId='';  // user-entered data, even though a barcode is attached
+}
+function findFoodByBarcode(code){return Object.values(DB.foods).find(f=>f.barcode&&f.barcode===code&&!f.deleted);}
+
+/* Map an Open Food Facts product to our food form (per-serving when known, else per 100 g) */
+function prefillFromOFF(p,code){
+  const nm=p.nutriments||{};
+  const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null;};
+  // base values per 100g (OFF normalizes most to grams; energy may be kcal or kJ)
+  let kcal=num(nm['energy-kcal_100g']);
+  if(kcal===null){const kj=num(nm['energy_100g']);if(kj!==null)kcal=kj/4.184;}
+  const per100={
+    calories:kcal,
+    protein:num(nm['proteins_100g']),
+    totalCarbs:num(nm['carbohydrates_100g']),
+    totalFat:num(nm['fat_100g']),
+    satFat:num(nm['saturated-fat_100g']),
+    polyFat:num(nm['polyunsaturated-fat_100g']),
+    monoFat:num(nm['monounsaturated-fat_100g']),
+    transFat:num(nm['trans-fat_100g']),
+    fiber:num(nm['fiber_100g']),
+    sugars:num(nm['sugars_100g']),
+    addedSugars:num(nm['added-sugars_100g']),
+    sugarAlcohols:num(nm['polyols_100g']),
+    // these are stored in grams by OFF -> convert to mg
+    cholesterol:mul(num(nm['cholesterol_100g']),1000),
+    sodium:sodiumMg(nm),
+    potassium:mul(num(nm['potassium_100g']),1000)
+  };
+  // determine serving basis + unit
+  let servQty=100, servUnit='g', factor=1;
+  const sq=num(p.serving_quantity);
+  if(sq&&sq>0){
+    servQty=round1(sq);factor=sq/100;
+    let ug=p.serving_quantity_unit||'';
+    if(!ug && p.serving_size){const m=String(p.serving_size).match(/[a-zA-Z]+/);if(m)ug=m[0];}
+    servUnit=normalizeUnit(ug)||'g';
+  }
+  // fill the form (review-first)
+  closeScan();
+  openCreateFood();
+  currentBarcode=code;
+  currentSource='off';currentFdcId='';
+  document.getElementById('fName').value=(p.product_name||p.generic_name||'').trim();
+  document.getElementById('fBrand').value=((p.brands||'').split(',')[0]||'').trim();
+  document.getElementById('fServQty').value=servQty;
+  setUnitValue(servUnit);
+  servScaleBasis=servQty;
+  let any=false, hadExtra=false;
+  NUT_FIELDS.forEach(k=>{
+    const el=document.getElementById('n_'+k);if(!el)return;
+    let v=per100[k];
+    if(v===null||v===undefined){el.value='';return;}
+    v=v*factor;
+    v=k==='calories'?Math.round(v):round1(v);
+    el.value=v;any=true;
+    if(['vitD','calcium','iron','potassium','vitA','vitC'].includes(k))hadExtra=true;
+  });
+  if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(EL_ONLY.some(k=>document.getElementById('n_'+k).value!==''));
+  setMicronutrientsOpen(MICRO_KEYS.some(k=>document.getElementById('n_'+k).value!==''));
+  if(scanContext==='log')pendingLogAfterSave=true;
+  toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
+}
+function mul(v,f){return (v===null||v===undefined)?null:v*f;}
+function sodiumMg(nm){
+  const num=v=>{const n=parseFloat(v);return isFinite(n)?n:null;};
+  let s=num(nm['sodium_100g']);                       // grams
+  if(s!==null)return s*1000;
+  const salt=num(nm['salt_100g']);                    // grams of salt
+  if(salt!==null)return (salt/2.5)*1000;              // salt -> sodium
+  return null;
+}
+function round1(n){return Math.round(n*10)/10;}
+
+/* ============================================================
+   DELIVERY 1 HELPERS (pure, unit-tested)
+   ============================================================ */
+
+/* ---- Pluralize countable units (display only) ---- */
+const COUNTABLE_UNITS=['serving','bottle','slice','piece','scoop','can','packet','egg','clove'];
+function pluralizeUnit(unit,qty){
+  if(qty===1)return unit;
+  const u=String(unit||'').toLowerCase();
+  if(COUNTABLE_UNITS.includes(u))return unit+'s';   // serving->servings, bottle->bottles ...
+  return unit;                                       // measured units (g, mL, oz...) & unknowns stay singular
+}
+/* ---- Brand shown beside a logged entry ---- */
+function entryBrand(e){
+  if(!e||e.type==='meal')return'';
+  const f=DB.foods[e.refId];
+  return (f&&f.brand)||'';
+}
+/* ---- Food provenance (source) ---- */
+function foodSource(f){return (f&&f.source)||(f&&f.barcode?'off':'manual');}
+function sourceLabel(src){return src==='usda'?'USDA FoodData Central':src==='off'?'Open Food Facts':'Added by you';}
+function sourceTag(src){return src==='usda'?'USDA':src==='off'?'Open Food Facts':'';}  // '' for manual = no row clutter
+
+/* ---- Honest unit conversion for the Edit Entry / Log sheet ----
+   Only convert within a single measurement family (no fake g<->mL).
+   "serving" is always available (1 serving = servQty native units). */
+const UNIT_FAMILIES={
+  mass:{g:1,kg:1000,oz:28.3495,lb:453.592},
+  volume:{mL:1,L:1000,'fl oz':29.5735,cup:236.588,tbsp:14.7868,tsp:4.92892}
+};
+function unitFamily(u){u=normalizeUnit(u);for(const fam in UNIT_FAMILIES){if(Object.prototype.hasOwnProperty.call(UNIT_FAMILIES[fam],u))return fam;}return null;}
+function unitsForFood(f){
+  const native=normalizeUnit((f&&f.servUnit)||'serving');
+  const fam=unitFamily(native);
+  if(fam)return ['serving',...Object.keys(UNIT_FAMILIES[fam])];
+  const list=['serving'];
+  if(native&&native!=='serving')list.push(native);
+  return list;
+}
+// amount expressed in `unit` -> quantity in the food's native servUnit
+function unitToNativeQty(f,amount,unit){
+  unit=normalizeUnit(unit);
+  const native=normalizeUnit((f&&f.servUnit)||'serving');
+  const sq=(f&&f.servQty)||1;
+  if(unit==='serving')return amount*sq;
+  const fam=unitFamily(native),fu=unitFamily(unit);
+  if(fam&&fu&&fam===fu)return (amount*UNIT_FAMILIES[fam][unit])/UNIT_FAMILIES[fam][native];
+  return amount; // same/unknown unit: treat as native units directly
+}
+// amount in `unit` -> serving multiplier (drives nutrition)
+function foodMultForUnit(f,amount,unit){
+  const sq=(f&&f.servQty)||1;
+  return sq>0?unitToNativeQty(f,amount,unit)/sq:0;
+}
+// inverse: serving multiplier -> amount expressed in `unit` (used when switching units)
+function multToUnitAmount(f,mult,unit){
+  unit=normalizeUnit(unit);
+  const sq=(f&&f.servQty)||1;
+  if(unit==='serving')return mult;
+  const native=normalizeUnit((f&&f.servUnit)||'serving');
+  const nativeQty=mult*sq;
+  const fam=unitFamily(native),fu=unitFamily(unit);
+  if(fam&&fu&&fam===fu)return (nativeQty*UNIT_FAMILIES[fam][native])/UNIT_FAMILIES[fam][unit];
+  return nativeQty;
+}
+
+/* ---- USDA FoodData Central food search (manual lookup, BYO key) ---- */
+const USDA_KEY_LS='plate.usda.key';
+function usdaKey(){try{return (localStorage.getItem(USDA_KEY_LS)||'').trim();}catch(e){return'';}}
+function setUsdaKey(v){try{(v&&v.trim())?localStorage.setItem(USDA_KEY_LS,v.trim()):localStorage.removeItem(USDA_KEY_LS);}catch(e){}}
+function usdaNum(arr,number){
+  const x=(arr||[]).find(n=>String(n.nutrientNumber)===number||String(n.number)===number);
+  if(!x)return null;
+  const v=parseFloat(x.value!=null?x.value:x.amount);
+  return isFinite(v)?v:null;
+}
+// Map a USDA food's foodNutrients (per 100 g/mL) to our per-serving-basis nut fields
+function usdaPer100(fn){
+  let kcal=usdaNum(fn,'208');
+  if(kcal===null){const kj=usdaNum(fn,'268');if(kj!==null)kcal=kj/4.184;}
+  return {
+    calories:kcal,
+    protein:usdaNum(fn,'203'),
+    totalCarbs:usdaNum(fn,'205'),
+    totalFat:usdaNum(fn,'204'),
+    satFat:usdaNum(fn,'606'),
+    polyFat:usdaNum(fn,'646'),
+    monoFat:usdaNum(fn,'645'),
+    transFat:usdaNum(fn,'605'),
+    fiber:usdaNum(fn,'291'),
+    fiberSoluble:usdaNum(fn,'295'),
+    fiberInsoluble:usdaNum(fn,'297'),
+    sugars:usdaNum(fn,'269'),
+    addedSugars:usdaNum(fn,'539'),
+    cholesterol:usdaNum(fn,'601'),  // already mg
+    sodium:usdaNum(fn,'307'),       // already mg
+    potassium:usdaNum(fn,'306'),    // already mg
+    calcium:usdaNum(fn,'301'),      // mg
+    magnesium:usdaNum(fn,'304'),    // mg
+    phosphorus:usdaNum(fn,'305'),   // mg
+    vitE:usdaNum(fn,'323'),         // mg
+    vitK:usdaNum(fn,'430'),         // mcg
+    b1:usdaNum(fn,'404'),           // mg
+    b2:usdaNum(fn,'405'),           // mg
+    b3:usdaNum(fn,'406'),           // mg
+    b5:usdaNum(fn,'410'),           // mg
+    b6:usdaNum(fn,'415'),           // mg
+    b7:usdaNum(fn,'416'),           // mcg
+    b9:usdaNum(fn,'417'),           // mcg
+    b12:usdaNum(fn,'418'),          // mcg
+    choline:usdaNum(fn,'421'),      // mg
+    zinc:usdaNum(fn,'309'),         // mg
+    copper:usdaNum(fn,'312'),       // mg
+    manganese:usdaNum(fn,'315'),    // mg
+    selenium:usdaNum(fn,'317'),     // mcg
+    iodine:usdaNum(fn,'314')        // mcg
+  };
+}
+function usdaServingBasis(food){
+  let servQty=100,servUnit='g',factor=1;
+  let u=String(food&&food.servingSizeUnit||'').toLowerCase();
+  if(u==='grm')u='g'; if(u==='mlt')u='ml';
+  const ss=parseFloat(food&&food.servingSize);
+  if(isFinite(ss)&&ss>0){servQty=round1(ss);factor=ss/100;servUnit=normalizeUnit(u)||'g';}
+  return {servQty,servUnit,factor};
+}
+function usdaName(food){return String(food&&food.description||'').trim();}
+function usdaBrand(food){return String(food&&(food.brandName||food.brandOwner)||'').trim();}
+
+/* ============================================================
+   DRIVE SYNC  (reusable across Health apps — only APP_FILE/health_app differ)
+   Offline-first: localStorage is the instant working cache; Drive is the
+   durable source of truth. On open: pull (newer wins). On change: debounced push.
+   ============================================================ */
+const DRIVE={
+  CLIENT_ID:'732621876336-m9qfqnfse5oe22kv0ff24m4b6q2967ih.apps.googleusercontent.com',
+  SCOPE:'https://www.googleapis.com/auth/drive.file',
+  FOLDER:'Health',
+  FILE:'plate-latest.json',
+  LINK_KEY:'plate.drive.linked'
+};
+let gTokenClient=null, gAccessToken=null, gFolderId=null, gSyncState='off', gLastSync=null, pushTimer=null;
+
+function driveLinked(){try{return localStorage.getItem(DRIVE.LINK_KEY)==='1';}catch(e){return false;}}
+function setLinked(v){try{v?localStorage.setItem(DRIVE.LINK_KEY,'1'):localStorage.removeItem(DRIVE.LINK_KEY);}catch(e){}}
+function setSync(state,note){gSyncState=state;if(state==='synced')gLastSync=new Date();renderSyncUI(note);}
+
+function gisReady(){return !!(window.google && google.accounts && google.accounts.oauth2);}
+function ensureTokenClient(){
+  if(gTokenClient||!gisReady())return gTokenClient;
+  gTokenClient=google.accounts.oauth2.initTokenClient({
+    client_id:DRIVE.CLIENT_ID, scope:DRIVE.SCOPE,
+    callback:(resp)=>{
+      if(resp&&resp.access_token){gAccessToken=resp.access_token;if(gTokenResolve){gTokenResolve(true);gTokenResolve=null;}}
+      else{if(gTokenResolve){gTokenResolve(false);gTokenResolve=null;}}
+    },
+    error_callback:()=>{if(gTokenResolve){gTokenResolve(false);gTokenResolve=null;}}
+  });
+  return gTokenClient;
+}
+let gTokenResolve=null;
+function getToken(interactive){
+  return new Promise((resolve)=>{
+    if(!ensureTokenClient()){resolve(false);return;}
+    gTokenResolve=resolve;
+    try{gTokenClient.requestAccessToken({prompt:interactive?'':'none'});}
+    catch(e){gTokenResolve=null;resolve(false);}
+  });
+}
+async function driveFetch(url,opts){
+  opts=opts||{};opts.headers=Object.assign({Authorization:'Bearer '+gAccessToken},opts.headers||{});
+  let r=await fetch(url,opts);
+  if(r.status===401){ const ok=await getToken(false); if(!ok)throw new Error('auth'); opts.headers.Authorization='Bearer '+gAccessToken; r=await fetch(url,opts); }
+  if(!r.ok)throw new Error('drive '+r.status);
+  return r;
+}
+async function ensureFolder(){
+  if(gFolderId)return gFolderId;
+  const q=encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${DRIVE.FOLDER}' and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id)`);
+  const d=await r.json();
+  if(d.files&&d.files.length){gFolderId=d.files[0].id;}
+  else{const cr=await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:DRIVE.FOLDER,mimeType:'application/vnd.google-apps.folder'})});gFolderId=(await cr.json()).id;}
+  return gFolderId;
+}
+async function driveFindFile(name){
+  const q=encodeURIComponent(`name='${name}' and '${gFolderId}' in parents and trashed=false`);
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,modifiedTime)`);
+  const d=await r.json();return (d.files&&d.files[0])||null;
+}
+async function driveSave(name,obj){
+  const json=JSON.stringify(obj,null,2);
+  const existing=await driveFindFile(name);
+  if(existing){
+    await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=media`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:json});
+  }else{
+    const b='health'+Date.now();
+    const meta={name,mimeType:'application/json',parents:[gFolderId]};
+    const body=`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`+JSON.stringify(meta)+`\r\n--${b}\r\nContent-Type: application/json\r\n\r\n`+json+`\r\n--${b}--`;
+    await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{'Content-Type':'multipart/related; boundary='+b},body});
+  }
+}
+async function driveLoad(name){
+  const f=await driveFindFile(name);if(!f)return null;
+  const r=await driveFetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);
+  return await r.json();
+}
+function buildEnvelope(){
+  return {health_app:'plate',version:1,exportedAt:new Date().toISOString(),units:'us',daily:buildDailySummary(),raw:DB};
+}
+// Reconcile local vs Drive by updatedAt (last-write-wins). Returns what happened.
+async function reconcile(){
+  await ensureFolder();
+  const remote=await driveLoad(DRIVE.FILE);
+  const remoteDB=(remote && remote.raw && remote.raw.foods)?remote.raw:null;
+  const localT=DB.updatedAt||'', remoteT=(remoteDB&&remoteDB.updatedAt)||'';
+  if(!remoteDB){ await driveSave(DRIVE.FILE,buildEnvelope()); return 'pushed-first'; }
+  if(remoteT>localT){
+    DB=Object.assign(blankDB(),remoteDB);
+    save({keepStamp:true,noPush:true});
+    renderToday();renderGoals&&renderGoals();renderFoods&&renderFoods();
+    return 'pulled';
+  }else if(localT>remoteT){
+    await driveSave(DRIVE.FILE,buildEnvelope());
+    return 'pushed';
+  }
+  return 'in-sync';
+}
+function schedulePush(){
+  if(!driveLinked())return;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async()=>{
+    if(!gAccessToken){const ok=await getToken(false);if(!ok){setSync('error','Tap Sync to reconnect');return;}}
+    try{ setSync('syncing'); await ensureFolder(); await driveSave(DRIVE.FILE,buildEnvelope()); setSync('synced'); }
+    catch(e){ setSync(navigator.onLine?'error':'offline'); }
+  },2500);
+}
+// User taps "Connect"
+async function linkDrive(){
+  if(!gisReady()){toast('Sign-in still loading — try again in a second');return;}
+  setSync('connecting');
+  const ok=await getToken(true);
+  if(!ok){setSync('off','Sign-in cancelled');return;}
+  setLinked(true);
+  try{ const what=await reconcile(); setSync('synced', what==='pulled'?'Loaded your data from Drive':null); toast('Google Drive connected'); }
+  catch(e){ setSync('error','Couldn’t sync — try again'); }
+}
+// User taps "Sync now"
+async function syncNow(){
+  if(!driveLinked()){linkDrive();return;}
+  if(!gAccessToken){const ok=await getToken(false);if(!ok){const ok2=await getToken(true);if(!ok2){setSync('error','Reconnect needed');return;}}}
+  setSync('syncing');
+  try{ const what=await reconcile(); setSync('synced', what==='pulled'?'Pulled newer data from Drive':null); }
+  catch(e){ setSync(navigator.onLine?'error':'offline'); }
+}
+function unlinkDrive(){
+  setLinked(false);gAccessToken=null;gFolderId=null;
+  if(window.google&&google.accounts&&google.accounts.oauth2&&gAccessToken){try{google.accounts.oauth2.revoke(gAccessToken);}catch(e){}}
+  setSync('off');toast('Disconnected (your Drive file is kept)');
+}
+// On app open: if previously linked, silently reconnect and pull.
+async function autoConnectDrive(){
+  if(!driveLinked())return;
+  let tries=0;
+  while(!gisReady()&&tries<25){await new Promise(r=>setTimeout(r,200));tries++;}
+  if(!gisReady()){setSync('error','Sign-in didn’t load');return;}
+  setSync('connecting');
+  const ok=await getToken(false);
+  if(!ok){setSync('error','Tap Sync to reconnect');return;}
+  try{ const what=await reconcile(); setSync('synced', what==='pulled'?'Loaded latest from Drive':null); }
+  catch(e){ setSync(navigator.onLine?'error':'offline'); }
+}
+function renderSyncUI(note){
+  const el=document.getElementById('syncBox');if(!el)return;
+  const map={
+    off:['Not connected','Your data is on this device only. Connect Drive to back it up and sync across phones.'],
+    connecting:['Connecting…',''],
+    syncing:['Syncing…',''],
+    synced:['Connected ✓', gLastSync?('Last synced '+gLastSync.toLocaleTimeString()):''],
+    error:['Sync issue', note||'Tap Sync now to retry.'],
+    offline:['Offline','Changes are saved on-device and will sync when you’re back online.']
+  };
+  const [title,sub]=map[gSyncState]||map.off;
+  const linked=driveLinked();
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div><div style="font-size:15px;font-weight:600;">Google Drive</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);margin-top:2px;">${title}${note&&gSyncState!=='error'?' · '+note:''}</div></div>
+      <span style="width:10px;height:10px;border-radius:50%;flex:none;background:${gSyncState==='synced'?'var(--green-bright)':gSyncState==='error'?'var(--danger)':'var(--ink-faint)'}"></span>
+    </div>
+    <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-top:8px;">${sub}</div>
+    <div class="btn-pair" style="margin-top:14px;">
+      ${linked
+        ? `<button class="btn btn-soft" onclick="syncNow()">Sync now</button><button class="btn btn-ghost" onclick="unlinkDrive()">Disconnect</button>`
+        : `<button class="btn btn-primary" onclick="linkDrive()"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Connect Google Drive</button>`}
+    </div>`;
+}
+
+/* ============ USDA FOOD SEARCH (UI) ============ */
+let usdaContext='log', usdaResults=[];
+function usdaStatus(html){const el=document.getElementById('usdaStatus');if(el)el.innerHTML=html;}
+function usdaSearchBtn(ctx){
+  return `<button class="btn btn-ghost usda-btn" onclick="openUsdaSearch('${ctx}')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+    Search the food database</button>`;
+}
+function openUsdaSearch(ctx){
+  usdaContext=ctx;
+  const src=ctx==='log'?'pickSearch':'foodSearch';
+  const q=((document.getElementById(src)||{}).value||'').trim();
+  usdaResults=[];document.getElementById('usdaList').innerHTML='';usdaStatus('');
+  document.getElementById('usdaSearch').value=q;
+  openSheet('usda');
+  if(q)runUsdaQuery();else setTimeout(()=>document.getElementById('usdaSearch').focus(),100);
+}
+function runUsdaQuery(){
+  const q=(document.getElementById('usdaSearch').value||'').trim();
+  const list=document.getElementById('usdaList');
+  if(!q){usdaStatus('Type a food to search.');return;}
+  const key=usdaKey();
+  if(!key){usdaStatus('Add a free USDA API key in <b>Settings → Food Search</b> to search by name. It takes about a minute.');list.innerHTML='';return;}
+  usdaStatus('Searching…');list.innerHTML='';
+  const url='https://api.nal.usda.gov/fdc/v1/foods/search?api_key='+encodeURIComponent(key)
+    +'&query='+encodeURIComponent(q)+'&pageSize=25&dataType='+encodeURIComponent('Foundation,SR Legacy,Branded');
+  fetch(url).then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();})
+    .then(data=>{usdaResults=(data&&data.foods)||[];renderUsdaResults();})
+    .catch(()=>{
+      if(navigator.onLine===false)usdaStatus('You appear to be offline. Search needs a connection — you can still add foods manually.');
+      else usdaStatus('Couldn’t search just now. Double-check your API key in Settings, or try again.');
+    });
+}
+function renderUsdaResults(){
+  const list=document.getElementById('usdaList');
+  if(!usdaResults.length){usdaStatus('No matches. Try a simpler word.');list.innerHTML='';return;}
+  usdaStatus(usdaResults.length+' result'+(usdaResults.length!==1?'s':'')+' — tap one to review &amp; save.');
+  list.innerHTML='<div class="listcard">'+usdaResults.map((f,i)=>{
+    const basis=usdaServingBasis(f);
+    const p=usdaPer100(f.foodNutrients||[]);
+    const cal=p.calories!=null?Math.round(p.calories*basis.factor):null;
+    const brand=usdaBrand(f);
+    const tag=f.dataType==='Branded'?'':'<span class="tagm">USDA</span>';
+    const dt=f.dataType?(' · '+esc(f.dataType)):'';
+    const sub=(brand?esc(brand)+' · ':'')+'per '+fmtQty(basis.servQty)+' '+esc(basis.servUnit)+dt;
+    return `<button class="row" onclick="pickUsda(${i})">
+      <div class="row-main"><div class="row-t">${esc(usdaName(f))} ${tag}</div><div class="row-s">${sub}</div></div>
+      <div class="row-r">${cal!=null?cal:'—'}</div></button>`;
+  }).join('')+'</div>';
+}
+function pickUsda(i){const f=usdaResults[i];if(f)prefillFromUSDA(f);}
+function prefillFromUSDA(food){
+  closeSheet('usda');
+  openCreateFood();
+  currentBarcode='';
+  currentSource='usda';currentFdcId=food.fdcId||'';
+  document.getElementById('fName').value=usdaName(food);
+  document.getElementById('fBrand').value=usdaBrand(food);
+  const basis=usdaServingBasis(food);
+  document.getElementById('fServQty').value=basis.servQty;
+  setUnitValue(basis.servUnit);
+  servScaleBasis=basis.servQty;
+  const per100=usdaPer100(food.foodNutrients||[]);
+  let any=false,hadExtra=false;
+  NUT_FIELDS.forEach(k=>{
+    const el=document.getElementById('n_'+k);if(!el)return;
+    let v=per100[k];
+    if(v===null||v===undefined){el.value='';return;}
+    v=v*basis.factor;
+    v=k==='calories'?Math.round(v):round1(v);
+    el.value=v;any=true;
+    if(['vitD','calcium','iron','potassium','vitA','vitC'].includes(k))hadExtra=true;
+  });
+  if(hadExtra){document.getElementById('moreNutrients').classList.add('open');document.getElementById('moreBtn').classList.add('open');}
+  setFiberBreakdown(document.getElementById('n_fiberSoluble').value!==''||document.getElementById('n_fiberInsoluble').value!=='');
+  pushElectrolyteMirrors();
+  setElectrolytesOpen(EL_ONLY.some(k=>document.getElementById('n_'+k).value!==''));
+  setMicronutrientsOpen(MICRO_KEYS.some(k=>document.getElementById('n_'+k).value!==''));
+  if(usdaContext==='log')pendingLogAfterSave=true;
+  toast(any?'Found! Check the values, then Save':'Found — add the nutrition facts');
+}
+function renderUsdaKeyUI(){
+  const el=document.getElementById('usdaBox');if(!el)return;
+  const has=!!usdaKey();
+  el.innerHTML=`
+    <div style="font-size:15px;font-weight:600;">USDA FoodData Central</div>
+    <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-top:6px;">${has?'Connected ✓ — you can search foods by name when logging.':'Add a free API key to search a large public food database (like “banana”) by name.'}</div>
+    <div class="field" style="margin-top:12px;"><label>API key</label>
+      <input type="text" id="usdaKeyInput" placeholder="Paste your key" value="${esc(usdaKey())}" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="btn-pair" style="margin-top:10px;">
+      <button class="btn btn-soft" onclick="saveUsdaKeyFromInput()">Save key</button>
+      ${has?'<button class="btn btn-ghost" onclick="clearUsdaKey()">Remove</button>':''}
+    </div>
+    <div style="font-size:11.5px;color:var(--ink-faint);line-height:1.5;margin-top:12px;">Get a free key in about a minute at fdc.nal.usda.gov/api-key-signup. It stays on this device only and is never uploaded.</div>`;
+}
+function saveUsdaKeyFromInput(){setUsdaKey((document.getElementById('usdaKeyInput')||{}).value||'');renderUsdaKeyUI();toast(usdaKey()?'Food search ready':'Key cleared');}
+function clearUsdaKey(){setUsdaKey('');renderUsdaKeyUI();toast('Key removed');}
+
+/* ============ INIT ============ */
+buildUnitSelect();
+buildMicroFields();
+renderToday();
+renderUsdaKeyUI();
+renderSyncUI();
+wireSelectOnFocus();
+wireElectrolyteSync();
+// Time hint dismissal: tap anywhere closes it; the "?" toggles via its own handler.
+document.addEventListener('click',function(e){
+  if(!timeHintOpen)return;
+  if(e.target.closest&&e.target.closest('#pTimeQ'))return;
+  closeTimeHint();
+},true);
+(function(){const bn=document.getElementById('buildNote');if(bn)bn.textContent='Plate · build '+APP_BUILD;})();
+autoConnectDrive();
+</script>
+</body>
+</html>
