@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ignore nutrition-tracker service account credentials
+nutrition-tracker*.json

@@ -1,0 +1,8 @@
+httpx
+fitparse
+gspread
+pandas
+pyyaml
+pytest
+pytest-asyncio
+python-dotenv
