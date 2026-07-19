@@ -5,4 +5,4 @@ NOTIFY_WEBHOOK_URL: ""
 # Max heart rate for time-in-zone computation. Leave blank to auto-derive
 # (220 - age, from the Polar profile birthdate). Set an integer to override
 # with your measured/lab max HR for more accurate zones.
-HR_MAX: ""
+HR_MAX: 188
