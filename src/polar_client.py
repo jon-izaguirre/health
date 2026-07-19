@@ -39,6 +39,12 @@ class PolarClient:
             logger.error(f"Polar API Request Error: {str(e)}")
             raise PolarAPIError(f"Request Error: {str(e)}") from e
 
+    def get_user_info(self, user_id: str):
+        """Fetch the registered user's profile (includes birthdate, used to
+        derive max HR for zone computation)."""
+        resp = self._request("GET", f"/users/{user_id}")
+        return resp.json()
+
     def list_exercises(self):
         """
         Fetch non-transactional exercises list.

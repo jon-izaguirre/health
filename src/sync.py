@@ -38,6 +38,65 @@ def load_config():
         return yaml.safe_load(f)
 
 
+# Polar's default 5-zone model, as lower bounds in fraction of HR max
+# (Z1 50-60%, Z2 60-70%, Z3 70-80%, Z4 80-90%, Z5 >=90%). Time below 50% is unzoned.
+HR_ZONE_LOWER_BOUNDS = [0.50, 0.60, 0.70, 0.80, 0.90]
+
+
+def compute_zone_minutes(hr_series, hr_max):
+    """Compute minutes spent in each HR zone from a FIT heart-rate stream.
+
+    Polar's non-transactional AccessLink API does not serve per-exercise
+    time-in-zone (the /heart-rate-zones sub-resource 404s), and the FIT file
+    carries no precomputed zone field either -- so we derive zones from the
+    1 Hz HR samples against a max-HR-relative zone model.
+
+    hr_series: list of (elapsed_seconds, hr_bpm). hr_max: int/float bpm.
+    Returns [z1, z2, z3, z4, z5] in minutes, rounded to 2 dp.
+    """
+    z = [0.0] * 5
+    if not hr_series or not hr_max:
+        return [round(x, 2) for x in z]
+
+    for i, (t, hr) in enumerate(hr_series):
+        if hr is None:
+            continue
+        # Duration this sample represents (gap to the next sample; ~1s at 1 Hz).
+        dt = hr_series[i + 1][0] - t if i + 1 < len(hr_series) else 1.0
+        if dt <= 0 or dt > 10:  # guard clock gaps / final sample
+            dt = 1.0
+        frac = hr / hr_max
+        for zi in range(4, -1, -1):  # highest zone first
+            if frac >= HR_ZONE_LOWER_BOUNDS[zi]:
+                z[zi] += dt
+                break
+        # frac < 0.50 -> unzoned, not counted
+
+    return [round(x / 60.0, 2) for x in z]
+
+
+def resolve_hr_max(config, polar, user_id):
+    """Max HR for zone math: explicit config wins, else derive 220 - age from
+    the Polar user's birthdate, else a safe fallback."""
+    hr_max = config.get("HR_MAX")
+    if hr_max:
+        logger.info(f"Using configured HR max: {hr_max}")
+        return float(hr_max)
+    try:
+        info = polar.get_user_info(user_id)
+        birthdate = info.get("birthdate")  # "YYYY-MM-DD"
+        if birthdate:
+            by, bm, bd = (int(x) for x in birthdate.split("-"))
+            today = datetime.now()
+            age = today.year - by - ((today.month, today.day) < (bm, bd))
+            hr_max = 220 - age
+            logger.info(f"Derived HR max {hr_max} from birthdate (age {age}).")
+            return float(hr_max)
+    except Exception as e:
+        logger.warning(f"Could not derive HR max from Polar user info: {e}")
+    logger.warning("Falling back to default HR max 190 for zone computation.")
+    return 190.0
+
 
 def main():
     logger.info("Starting Polar Sync...")
@@ -69,6 +128,8 @@ def main():
         logger.error(f"Failed to fetch exercises: {e}")
         sys.exit(1)
         
+    hr_max = resolve_hr_max(config, polar, user_id)
+
     existing_ids = sheets.get_existing_exercise_ids()
     logger.info(f"Found {len(existing_ids)} existing exercises in Sheets.")
     
@@ -95,8 +156,7 @@ def main():
                     continue
                 logger.info(f"Processing new exercise {ex_id}")
             fit_bytes = polar.get_exercise_fit(url)
-            zones = polar.get_exercise_zones(url)
-            
+
             hr_series, rr_series = parse_fit(fit_bytes)
             
             # Start Time and Timezone
@@ -125,16 +185,9 @@ def main():
             if duration_min > 0 and distance_km > 0:
                 avg_pace = duration_min / distance_km
                 
-            # Zones (extract durations in minutes)
-            z1_min, z2_min, z3_min, z4_min, z5_min = 0.0, 0.0, 0.0, 0.0, 0.0
-            for z in zones:
-                z_idx = z.get("index")
-                z_dur = parse_iso_duration_to_min(z.get("in-zone", z.get("in_zone")))
-                if z_idx == 1: z1_min = z_dur
-                elif z_idx == 2: z2_min = z_dur
-                elif z_idx == 3: z3_min = z_dur
-                elif z_idx == 4: z4_min = z_dur
-                elif z_idx == 5: z5_min = z_dur
+            # Zones: computed from the FIT HR stream (Polar's API serves no
+            # time-in-zone for non-transactional exercises). See compute_zone_minutes.
+            z1_min, z2_min, z3_min, z4_min, z5_min = compute_zone_minutes(hr_series, hr_max)
                 
             hr_data = summary.get("heart-rate", summary.get("heartRate", summary.get("heart_rate", {})))
             avg_hr = hr_data.get("average", 0)
