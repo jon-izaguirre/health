@@ -5,3 +5,5 @@ __pycache__/
 
 # Ignore nutrition-tracker service account credentials
 nutrition-tracker*.json
+.env.save
+#.save
